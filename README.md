@@ -32,7 +32,25 @@ As you can see, you can also define `class Mongo` inside the document to specify
 
 Any field or types has just to be pydantic capable definitions
 
+# Reserved attributes names
+In `Document` the following attributes names are reserved my motorized
+- get_query
+- save
+- delete
+- _create
+- reload
+- _transform
+
 ## Examples
+### Connect / Disconnect
+```python
+from motorized.client import connection
+
+async def main():
+    await connection.connect('mongodb://192.168.1.12:27017/test', connect=True)
+
+    await connection.disconnect()
+```
 
 ### Save
 ```python
@@ -61,6 +79,7 @@ async def main():
 if __name__ == '__main__':
     asyncio.run(main())
 ```
+To know if a document already in the database, the ODM look up in the `id` field in the model instance, if you set it to None then if you try to save it you will create a new copy of this document in the database
 
 ### Count
 ```python

@@ -30,6 +30,12 @@ class Q:
         return instance
 
     @classmethod
+    def raw(self, query: Dict) -> "Q":
+        instance = Q()
+        instance.query = query
+        return instance
+
+    @classmethod
     def convert_kwargs_to_query(cls, invert=False, **kwargs) -> Dict:
         query = {}
         for key, value in kwargs.items():
@@ -86,3 +92,6 @@ class Q:
 
     def is_empty(self) -> bool:
         return not self.query
+
+    def __eq__(self, other: "Q") -> bool:
+        return self.query == other.query

@@ -7,6 +7,7 @@ from pymongo.results import InsertOneResult
 from motorized.queryset import QuerySet
 from motorized.query import Q
 from motorized.types import PydanticObjectId, ObjectId
+from motorized.exceptions import DocumentNotSavedError
 
 
 class DocumentMeta(ModelMetaclass):
@@ -38,53 +39,56 @@ class DocumentBase(metaclass=DocumentMeta):
         manager_class = QuerySet
         collection = None
 
-    def get_query(self, id_field: str = 'id') -> Q:
-        document_id = getattr(self, id_field)
+    def get_query(self) -> Q:
+        document_id = getattr(self, 'id', None)
         if not document_id:
-            raise ValueError('document has no id.')
-        return Q(**{id_field: document_id})
+            raise DocumentNotSavedError('document has no id.')
+        return Q(_id=document_id)
 
-    async def save(self, id_field: str = 'id'):
-        data = self.dict()
-        document_id = data.get(id_field, None)
-        if document_id is None:
-            data.pop(id_field, None)
-            response = await self.objects.collection.insert_one(data)
-            if isinstance(response, InsertOneResult):
-                self.id = response.inserted_id
-        else:
-            response = await self.objects.collection.update_one(
-                filter={id_field: document_id},
-                update={'$set': data}
-            )
-        return response
-
-    async def delete(self, id_field: str = 'id'):
-        document_id = getattr(self, id_field)
-        if not document_id:
-            return
-        await self.objects.filter(**{id_field: document_id}).delete_one()
-        setattr(self, id_field, None)
+    async def _create(self, creation_dict: Dict) -> "Document":
+        response = await self.objects.collection.insert_one(creation_dict)
+        if isinstance(response, InsertOneResult):
+            self.id = response.inserted_id
         return self
 
-    # async def reload(self, id_field: str = 'id'):
-    #     document_id = getattr(self, id_field, None)
-    #     if not document_id:
-    #         raise ValueError('missing document id, use .save() first')
-    #     document = await self.objects.filter(**{id_field: document_id}).get()
-    #     self.__dict__ = document.dict()
-    #     return self
+    async def save(self) -> "Document":
+        data = self.dict()
+        document_id = data.pop('id', None)
+        if document_id is None:
+            return await self._create(data)
+        await self.objects.collection.update_one(
+            filter={'_id': document_id},
+            update={'$set': data}
+        )
+        return self
+
+    async def delete(self):
+        try:
+            qs = self.objects.from_query(self, self.get_query())
+            await qs.delete_one()
+        except DocumentNotSavedError:
+            pass
+        setattr(self, 'id', None)
+        return self
+
+    async def fetch(self):
+        qs = self.objects.copy()
+        qs._query = self.get_query()
+        return await qs.get()
 
 
 class Document(DocumentBase, BaseModel):
-    id: Optional[PydanticObjectId] = Field(alias='id')
+    id: Optional[PydanticObjectId] = Field(alias='_id')
 
     def __init__(self, *args, **kwargs) -> None:
-        document_id = kwargs.pop('_id', None)
-        if document_id:
-            kwargs.setdefault('id', document_id)
-        BaseModel.__init__(self, *args, **kwargs)
+        BaseModel.__init__(self, *args, **self._transform(**kwargs))
         DocumentBase.__init__(self)
 
     class Config:
         json_encoders = {ObjectId: str}
+
+    def _transform(self, **kwargs) -> Dict:
+        """Override this method to change the input database before having it
+        being validated/parsed by BaseModel (pydantic)
+        """
+        return kwargs

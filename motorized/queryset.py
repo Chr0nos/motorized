@@ -1,12 +1,9 @@
-from typing import Any, List, Callable, Dict, Optional, AsyncGenerator, Tuple, Union
+from typing import Any, List, Callable, Dict, Optional, AsyncGenerator, Tuple, Union, Type
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase, AsyncIOMotorCursor
 
 from motorized.query import Q
 from motorized.client import connection
-
-
-class NotConnectedException(Exception):
-    pass
+from motorized.exceptions import NotConnectedException
 
 
 class QuerySet:
@@ -23,6 +20,12 @@ class QuerySet:
         instance._limit = self._limit
         instance._sort = self._sort
         instance.use(self.database)
+        return instance
+
+    @classmethod
+    def from_query(cls, model: Type["Document"], query: Q) -> "QuerySet":
+        instance = QuerySet(model)
+        instance._query = query
         return instance
 
     def use(self, database: Optional[AsyncIOMotorDatabase]) -> None:
@@ -122,7 +125,7 @@ class QuerySet:
         try:
             first = await cursor.__anext__()
         except StopAsyncIteration as error:
-            raise self.model.DocumentNotFound from error
+            raise self.model.DocumentNotFound(self._query.query) from error
         try:
             second = await cursor.__anext__()
         except StopAsyncIteration:
@@ -177,6 +180,9 @@ class QuerySet:
 
     async def delete(self, **kwargs):
         return await self.collection.delete_many(self._query.query, **kwargs)
+
+    async def delete_one(self, **kwargs):
+        return await self.collection.delete_one(self._query.query, **kwargs)
 
     async def pop(self, **kwargs) -> "Document":
         instance = await self.filter(**kwargs)
