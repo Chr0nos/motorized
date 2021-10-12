@@ -48,8 +48,43 @@ from motorized.client import connection
 
 async def main():
     await connection.connect('mongodb://192.168.1.12:27017/test', connect=True)
-
+    # here goes your interactions with the ODM
     await connection.disconnect()
+```
+### Embeded documents
+Having nested document could not be more easy, just put a `BaseModel` from pydantic in the `Document` declaration like bellow
+```python
+from pydantic.main import BaseModel
+from motorized.client import connection
+from motorized.document import Document
+
+class Position(BaseModel):
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+
+
+class User(Document):
+    email: str
+    has_lost_the_game: bool = True
+    position: Position
+```
+Embeded documents does not need to be `Document` because you only save the top level one.
+
+If you want to refer the current document (like the document itself) you can:
+
+```python
+from typing import Optional, List
+from motorized.document import Document
+
+class User(Document):
+    email: str
+    has_lost_the_game: bool = True
+    friends: Optional[List["User"]]
+
+
+# you will probably have to updated the forwared reference with:
+User.update_forward_refs()
 ```
 
 ### Save
