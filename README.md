@@ -36,10 +36,36 @@ Any field or types has just to be pydantic capable definitions
 In `Document` the following attributes names are reserved my motorized
 - get_query
 - save
+- commit
 - delete
 - _create
-- reload
+- fetch
 - _transform
+
+## Document Methods
+### get_query
+This method allow you to retrive a `Q()` instance to match the current object
+
+### save
+Save the current instance into the database, if there is no `id` then the object will be inserted, otherwise this will be an update
+
+### commit
+Same as .save but the method return the instance itself instead of the result from the database
+
+### delete
+Delete the current instance from the database and set the .id attribute to None on the current instance
+
+### _create
+This method is called for new insertions in the database by the save method
+
+### fetch
+Return a fresh instance of the current instance from the database
+
+### _transform
+This method is called before the __init__ method of the pydantic `BaseModel` class and reveive the kwargs, this allow you to change fields name or add/remove fields.
+
+The call is perform just after the fetch from the database
+
 
 ## Examples
 ### Connect / Disconnect
