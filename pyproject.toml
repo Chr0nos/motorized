@@ -14,6 +14,8 @@ pydantic = "^1.8.2"
 ipython = "^7.28.0"
 pytest = "^6.2.5"
 mongomock = "^3.23.0"
+flake8 = "^4.0.1"
+pylint = "^2.11.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -2,7 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, Asyn
 from typing import Optional, Union, Any, Optional, Dict, Type
 from pydantic import BaseModel, Field
 from pydantic.main import ModelMetaclass
-from pymongo.results import InsertOneResult
+from pymongo.results import InsertOneResult, UpdateResult
 
 from motorized.queryset import QuerySet
 from motorized.query import Q
@@ -45,24 +45,32 @@ class DocumentBase(metaclass=DocumentMeta):
             raise DocumentNotSavedError('document has no id.')
         return Q(_id=document_id)
 
-    async def _create(self, creation_dict: Dict) -> "Document":
+    async def _create(self, creation_dict: Dict) -> InsertOneResult:
         response = await self.objects.collection.insert_one(creation_dict)
-        if isinstance(response, InsertOneResult):
-            self.id = response.inserted_id
-        return self
+        self.id = response.inserted_id
+        return response
 
-    async def save(self) -> "Document":
+    async def save(self) -> Union[InsertOneResult, UpdateResult]:
         data = self.dict()
         document_id = data.pop('id', None)
         if document_id is None:
             return await self._create(data)
-        await self.objects.collection.update_one(
+        return await self.objects.collection.update_one(
             filter={'_id': document_id},
             update={'$set': data}
         )
+
+    async def commit(self) -> "Document":
+        """Same as `.save` but return the current instance.
+        """
+        await self.save()
         return self
 
-    async def delete(self):
+    async def delete(self) -> "Document":
+        """Delete the current instance from the database,
+        to the deleted the instance need to have a .id set, in any case the function
+        will return the instance itself
+        """
         try:
             qs = self.objects.from_query(self, self.get_query())
             await qs.delete_one()
@@ -71,7 +79,9 @@ class DocumentBase(metaclass=DocumentMeta):
         setattr(self, 'id', None)
         return self
 
-    async def fetch(self):
+    async def fetch(self) -> "Document":
+        """Return a fresh instance of the current document from the database.
+        """
         qs = self.objects.copy()
         qs._query = self.get_query()
         return await qs.get()
