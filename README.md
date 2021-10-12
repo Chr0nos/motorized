@@ -39,6 +39,7 @@ In `Document` the following attributes names are reserved my motorized
 - commit
 - delete
 - _create
+- _update
 - fetch
 - _transform
 
@@ -57,6 +58,9 @@ Delete the current instance from the database and set the .id attribute to None 
 
 ### _create
 This method is called for new insertions in the database by the save method
+
+### _update
+This method is called to save the update in the database by the save method if the object has a .id wich is not None
 
 ### fetch
 Return a fresh instance of the current instance from the database

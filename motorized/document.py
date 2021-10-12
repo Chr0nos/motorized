@@ -50,15 +50,18 @@ class DocumentBase(metaclass=DocumentMeta):
         self.id = response.inserted_id
         return response
 
+    async def _update(self, update_dict: Dict) -> UpdateResult:
+        return await self.objects.collection.update_one(
+            filter={'_id': self.id},
+            update={'$set': update_dict}
+        )
+
     async def save(self) -> Union[InsertOneResult, UpdateResult]:
         data = self.dict()
         document_id = data.pop('id', None)
         if document_id is None:
             return await self._create(data)
-        return await self.objects.collection.update_one(
-            filter={'_id': document_id},
-            update={'$set': data}
-        )
+        return await self._update(data)
 
     async def commit(self) -> "Document":
         """Same as `.save` but return the current instance.
