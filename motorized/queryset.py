@@ -185,7 +185,7 @@ class QuerySet:
         return await self.collection.delete_one(self._query.query, **kwargs)
 
     async def pop(self, **kwargs) -> "Document":
-        instance = await self.filter(**kwargs)
+        instance = self.filter(**kwargs)
         document_dict = await instance.collection.find_one_and_delete(instance.query._query)
         document = self.model(**document_dict)
         return document
