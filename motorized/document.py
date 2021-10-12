@@ -7,7 +7,7 @@ from pymongo.results import InsertOneResult, UpdateResult
 from motorized.queryset import QuerySet
 from motorized.query import Q
 from motorized.types import PydanticObjectId, ObjectId
-from motorized.exceptions import DocumentNotSavedError
+from motorized.exceptions import DocumentNotSavedError, MotorizedError
 
 
 class DocumentMeta(ModelMetaclass):
@@ -19,7 +19,7 @@ class DocumentMeta(ModelMetaclass):
         if instance.Mongo.collection is None and name not in ('Document', 'DocumentBase'):
             instance.Mongo.collection = name.lower() + 's'
 
-        class DocumentError(Exception):
+        class DocumentError(MotorizedError):
             pass
 
         class TooManyMatchException(DocumentError):
