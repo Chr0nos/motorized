@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "motorized"
+version = "0.1.0"
+description = "Asyncio mongodb ODM"
+authors = ["Sebastien Nicolet <snicolet95@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+motor = "^2.5.1"
+pydantic = "^1.8.2"
+
+[tool.poetry.dev-dependencies]
+ipython = "^7.28.0"
+pytest = "^6.2.5"
+mongomock = "^3.23.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
