@@ -49,8 +49,8 @@ class QuerySet:
             raise NotConnectedException('You need to use connection.connect before using collection')
         return getattr(connection.database, self.model.Mongo.collection)
 
-    async def count(self) -> int:
-        return await self.collection.count_documents(self._query.query)
+    async def count(self, **kwargs) -> int:
+        return await self.collection.count_documents(self._query.query, **kwargs)
 
     async def first(self) -> Optional["Document"]:
         try:
@@ -171,3 +171,18 @@ class QuerySet:
             return (word, 1)
 
         return [generate_tuple(word) for word in order]
+
+    async def exists(self) -> bool:
+        return await self.collection.count_documents(self._query.query, limit=1) > 0
+
+    async def delete(self, **kwargs):
+        return await self.collection.delete_many(self._query.query, **kwargs)
+
+    async def pop(self, **kwargs) -> "Document":
+        instance = await self.filter(**kwargs)
+        document_dict = await instance.collection.find_one_and_delete(instance.query._query)
+        document = self.model(**document_dict)
+        return document
+
+    async def indexes(self):
+        return [index async for index in self.collection.list_indexes()]
