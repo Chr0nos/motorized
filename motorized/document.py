@@ -102,6 +102,8 @@ class DocumentBase(metaclass=DocumentMeta):
 
     @classmethod
     def _aliased_fields(cls) -> Generator[List[ModelField], None, None]:
+        """Return the list of fields with aliases
+        """
         return [field for field in cls.__fields__.values() if field.name != field.alias]
 
 

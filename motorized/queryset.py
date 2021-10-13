@@ -129,7 +129,7 @@ class QuerySet:
         try:
             second = await cursor.__anext__()
         except StopAsyncIteration:
-            return first
+            return self.model(**first)
 
         raise self.model.TooManyMatchException
 
