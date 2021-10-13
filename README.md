@@ -33,15 +33,17 @@ As you can see, you can also define `class Mongo` inside the document to specify
 Any field or types has just to be pydantic capable definitions
 
 # Reserved attributes names
-In `Document` the following attributes names are reserved my motorized
-- get_query
-- save
+In `Document` the following attributes names are reserved by motorizedn
+- _aliased_fields
+- _create
+- _transform
+- _update
 - commit
 - delete
-- _create
-- _update
 - fetch
-- _transform
+- get_query
+- save
+- to_mongo
 
 ## Document Methods
 ### get_query

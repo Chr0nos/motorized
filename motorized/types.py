@@ -1,4 +1,5 @@
 from bson import ObjectId
+from pydantic.main import BaseModel
 
 
 class PydanticObjectId(ObjectId):
@@ -11,3 +12,7 @@ class PydanticObjectId(ObjectId):
         if not isinstance(v, ObjectId):
             raise TypeError('ObjectId required')
         return v
+
+    @classmethod
+    def __modify_schema__(cls, schema: dict):
+        schema['type'] = 'string'

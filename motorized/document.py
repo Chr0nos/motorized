@@ -1,6 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
-from typing import Optional, Union, Any, Optional, Dict, Type
+from typing import Optional, Tuple, Union, Any, Optional, Dict, Type, List, Generator
 from pydantic import BaseModel, Field
+from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
 from pymongo.results import InsertOneResult, UpdateResult
 
@@ -56,9 +57,19 @@ class DocumentBase(metaclass=DocumentMeta):
             update={'$set': update_dict}
         )
 
+    async def to_mongo(self) -> Dict:
+        """Convert the current model dictionary to database output dict,
+        this also mean the aliased fields will be stored in the alias name instead of their
+        name in the document declaration.
+        """
+        saving_data = self.dict()
+        for field in self._aliased_fields():
+            saving_data[field.alias] = saving_data.pop(field.name, None)
+        return saving_data
+
     async def save(self) -> Union[InsertOneResult, UpdateResult]:
-        data = self.dict()
-        document_id = data.pop('id', None)
+        data = await self.to_mongo()
+        document_id = data.pop('_id', None)
         if document_id is None:
             return await self._create(data)
         return await self._update(data)
@@ -88,6 +99,10 @@ class DocumentBase(metaclass=DocumentMeta):
         qs = self.objects.copy()
         qs._query = self.get_query()
         return await qs.get()
+
+    @classmethod
+    def _aliased_fields(cls) -> Generator[List[ModelField], None, None]:
+        return [field for field in cls.__fields__.values() if field.name != field.alias]
 
 
 class Document(DocumentBase, BaseModel):
