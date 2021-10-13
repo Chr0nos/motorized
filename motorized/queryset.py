@@ -22,6 +22,9 @@ class QuerySet:
         instance.use(self.database)
         return instance
 
+    def __repr__(self):
+        return f'<QuerySet: {self.model.__name__}: {self._query}>'
+
     @classmethod
     def from_query(cls, model: Type["Document"], query: Q) -> "QuerySet":
         instance = QuerySet(model)

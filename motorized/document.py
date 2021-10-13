@@ -1,5 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
-from typing import Optional, Tuple, Union, Any, Optional, Dict, Type, List, Generator
+from typing import Optional, Union, Any, Optional, Dict, Type, List, Generator
 from pydantic import BaseModel, Field
 from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
@@ -11,14 +11,22 @@ from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
 
 
+def show_class_constructor(cls, name, bases, optdict: Dict):
+    print(' --- ')
+    print('cls', cls)
+    print('name', name)
+    print('bases:', *bases)
+    print('opts', optdict)
+
+
 class DocumentMeta(ModelMetaclass):
-    def __new__(cls, name, bases, optdict: Dict) -> Type['DocumentBase']:
-        instance: Type[DocumentBase] = super().__new__(cls, name, bases, optdict)
-        manager_class = getattr(instance.Mongo, 'manager_class', QuerySet)
-        instance.objects = manager_class(instance)
-        # print(name, instance.Mongo.collection)
-        if instance.Mongo.collection is None and name not in ('Document', 'DocumentBase'):
-            instance.Mongo.collection = name.lower() + 's'
+    def __new__(cls, name, bases, optdict: Dict) -> Type['Document']:
+        # optdict.pop('objects', None)
+        # optdict.pop('__annotations__', {}).pop('objects', None)
+        # show_class_constructor(cls, name, bases, optdict)
+        instance: Type[Document] = super().__new__(cls, name, bases, optdict)
+        if name not in ('Document',):
+            cls._populate_default_mongo_options(cls, name, instance, optdict.get('Mongo'))
 
         class DocumentError(MotorizedError):
             pass
@@ -32,13 +40,47 @@ class DocumentMeta(ModelMetaclass):
         instance.DocumentError = DocumentError
         instance.TooManyMatchException = TooManyMatchException
         instance.DocumentNotFound = DocumentNotFound
+        instance.objects = instance.Mongo.manager_class(instance)
         return instance
 
+    def _populate_default_mongo_options(cls, name: str, instance: "Document",
+                                        custom_mongo_settings_class) -> None:
+        class Mongo:
+            pass
 
-class DocumentBase(metaclass=DocumentMeta):
+        # forbid re-utilisation of the Mongo class between inheritance of the class
+        try:
+            if instance.Mongo.class_name != name:
+                instance.Mongo = Mongo()
+        except AttributeError:
+            pass
+
+        if custom_mongo_settings_class:
+            instance.Mongo = custom_mongo_settings_class
+
+        default_settings = {
+            'collection': name.lower() + 's',
+            'manager_class': QuerySet,
+            'class_name': name
+        }
+
+        for attribute_name, default_value in default_settings.items():
+            if not hasattr(instance.Mongo, attribute_name):
+                setattr(instance.Mongo, attribute_name, default_value)
+
+
+class Document(BaseModel, metaclass=DocumentMeta):
+    # objects: QuerySet
+    id: Optional[PydanticObjectId] = Field(alias='_id')
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
     class Mongo:
         manager_class = QuerySet
-        collection = None
+
+    def __init__(self, *args, **kwargs) -> None:
+        BaseModel.__init__(self, *args, **self._transform(**kwargs))
 
     def get_query(self) -> Q:
         document_id = getattr(self, 'id', None)
@@ -105,17 +147,6 @@ class DocumentBase(metaclass=DocumentMeta):
         """Return the list of fields with aliases
         """
         return [field for field in cls.__fields__.values() if field.name != field.alias]
-
-
-class Document(DocumentBase, BaseModel):
-    id: Optional[PydanticObjectId] = Field(alias='_id')
-
-    def __init__(self, *args, **kwargs) -> None:
-        BaseModel.__init__(self, *args, **self._transform(**kwargs))
-        DocumentBase.__init__(self)
-
-    class Config:
-        json_encoders = {ObjectId: str}
 
     def _transform(self, **kwargs) -> Dict:
         """Override this method to change the input database before having it
