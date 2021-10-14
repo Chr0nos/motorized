@@ -33,7 +33,7 @@ As you can see, you can also define `class Mongo` inside the document to specify
 Any field or types has just to be pydantic capable definitions
 
 # Reserved attributes names
-In `Document` the following attributes names are reserved by motorizedn
+In `Document` the following attributes names are reserved by motorized
 - _aliased_fields
 - _create
 - _transform
