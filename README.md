@@ -83,6 +83,18 @@ async def main():
     # here goes your interactions with the ODM
     await connection.disconnect()
 ```
+
+### Add extra fields not for database saving
+To achieve something like adding a field but not having it into the db, you can define a new class into your document like bellow:
+```python
+class Foo(Document):
+    bar: bool = True
+    not_in_db: str = 'this will not be saved in mongo'
+
+    class Mongo:
+        local_fields = ('not_in_db',)
+```
+
 ### Embeded documents
 Having nested document could not be more easy, just put a `BaseModel` from pydantic in the `Document` declaration like bellow
 ```python

@@ -61,6 +61,7 @@ class DocumentMeta(ModelMetaclass):
         default_settings = {
             'collection': name.lower() + 's',
             'manager_class': QuerySet,
+            'local_fields': [],
             'class_name': name
         }
 
@@ -105,8 +106,15 @@ class Document(BaseModel, metaclass=DocumentMeta):
         name in the document declaration.
         """
         saving_data = self.dict()
+
+        # resolve ant alised fields to be saved in their alias name
         for field in self._aliased_fields():
             saving_data[field.alias] = saving_data.pop(field.name, None)
+
+        # remove any field listed in `local_fields` section
+        for field in getattr(self.Mongo, 'local_fields', []):
+            saving_data.pop(field, None)
+
         return saving_data
 
     async def save(self) -> Union[InsertOneResult, UpdateResult]:
