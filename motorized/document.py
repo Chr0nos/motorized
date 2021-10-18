@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
 from typing import Optional, Union, Any, Optional, Dict, Type, List, Generator
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
 from pymongo.results import InsertOneResult, UpdateResult
@@ -11,19 +11,11 @@ from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
 
 
-def show_class_constructor(cls, name, bases, optdict: Dict):
-    print(' --- ')
-    print('cls', cls)
-    print('name', name)
-    print('bases:', *bases)
-    print('opts', optdict)
-
 
 class DocumentMeta(ModelMetaclass):
     def __new__(cls, name, bases, optdict: Dict) -> Type['Document']:
         # optdict.pop('objects', None)
         # optdict.pop('__annotations__', {}).pop('objects', None)
-        # show_class_constructor(cls, name, bases, optdict)
         instance: Type[Document] = super().__new__(cls, name, bases, optdict)
         if name not in ('Document',):
             cls._populate_default_mongo_options(cls, name, instance, optdict.get('Mongo'))
@@ -89,12 +81,12 @@ class Document(BaseModel, metaclass=DocumentMeta):
             raise DocumentNotSavedError('document has no id.')
         return Q(_id=document_id)
 
-    async def _create(self, creation_dict: Dict) -> InsertOneResult:
+    async def _create_in_db(self, creation_dict: Dict) -> InsertOneResult:
         response = await self.objects.collection.insert_one(creation_dict)
         self.id = response.inserted_id
         return response
 
-    async def _update(self, update_dict: Dict) -> UpdateResult:
+    async def _update_in_db(self, update_dict: Dict) -> UpdateResult:
         return await self.objects.collection.update_one(
             filter={'_id': self.id},
             update={'$set': update_dict}
@@ -121,8 +113,8 @@ class Document(BaseModel, metaclass=DocumentMeta):
         data = await self.to_mongo()
         document_id = data.pop('_id', None)
         if document_id is None:
-            return await self._create(data)
-        return await self._update(data)
+            return await self._create_in_db(data)
+        return await self._update_in_db(data)
 
     async def commit(self) -> "Document":
         """Same as `.save` but return the current instance.
@@ -146,9 +138,7 @@ class Document(BaseModel, metaclass=DocumentMeta):
     async def fetch(self) -> "Document":
         """Return a fresh instance of the current document from the database.
         """
-        qs = self.objects.copy()
-        qs._query = self.get_query()
-        return await qs.get()
+        return await self.objects.filter(self.get_query()).get()
 
     @classmethod
     def _aliased_fields(cls) -> Generator[List[ModelField], None, None]:
@@ -161,3 +151,22 @@ class Document(BaseModel, metaclass=DocumentMeta):
         being validated/parsed by BaseModel (pydantic)
         """
         return kwargs
+
+    async def reload(self) -> "Document":
+        # fetch an validate input data from database
+        model_data = await self.objects.filter(self.get_query()).find_one()
+        model_data.pop('_id')
+        return self.update(model_data)
+
+    def update(self, input_data: Dict) -> "Document":
+        """Update the current instance with the given `input_data` after validation
+        return the object itself (without saving it in the database)
+        """
+        validate_model(self, input_data)
+        allow_extra: bool = getattr(self.Config, 'extra', 'ignore') == 'allow'
+
+        # load the fields into the current instance
+        for field, value in input_data.items():
+            if allow_extra or hasattr(self, field):
+                setattr(self, field, value)
+        return self

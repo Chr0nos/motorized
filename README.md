@@ -35,15 +35,21 @@ Any field or types has just to be pydantic capable definitions
 # Reserved attributes names
 In `Document` the following attributes names are reserved by motorized
 - _aliased_fields
-- _create
+- _create_in_db
 - _transform
-- _update
+- _update_in_db
 - commit
 - delete
 - fetch
 - get_query
+- reload
 - save
+- update
 - to_mongo
+
+### Restriction
+There is a technical restriction to be able to use ANY `Document`: having a `_id` field in the database, this is the only proper way that the ODM has to clearly identity a document without risking collisions.
+This field is present in any Document by default.
 
 ## Document Methods
 ### get_query
@@ -58,10 +64,10 @@ Same as .save but the method return the instance itself instead of the result fr
 ### delete
 Delete the current instance from the database and set the .id attribute to None on the current instance
 
-### _create
+### _create_in_db
 This method is called for new insertions in the database by the save method
 
-### _update
+### _update_in_db
 This method is called to save the update in the database by the save method if the object has a .id wich is not None
 
 ### fetch
@@ -72,6 +78,19 @@ This method is called before the __init__ method of the pydantic `BaseModel` cla
 
 The call is perform just after the fetch from the database
 
+### Update
+This method allow you to update the model with a given dictionary, the dictionary has to pass throught the validation process of pydantic, the function update and return the instance itself.
+```python
+class User(Document):
+    name: str
+    age: int
+
+
+bill = User.objects.get(name="bill")
+bill.update({"age": 42})
+print(bill.age)
+# show 42
+```
 
 ## Examples
 ### Connect / Disconnect

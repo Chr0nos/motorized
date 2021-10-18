@@ -67,16 +67,18 @@ class QuerySet:
     async def drop(self) -> None:
         await self.collection.drop()
 
-    def filter(self, **kwargs) -> "QuerySet":
+    def filter(self, query: Optional[Q] = None, /, **kwargs) -> "QuerySet":
         instance = self.copy()
+        if query:
+            instance._query += query
         instance._query += Q(**kwargs)
         return instance
 
     def exclude(self, **kwargs) -> "QuerySet":
         instance = self.copy()
-        query = Q()
-        query.query = Q.convert_kwargs_to_query(**kwargs, invert=True)
-        instance._query += query
+        inner_query = Q()
+        inner_query.query = Q.convert_kwargs_to_query(**kwargs, invert=True)
+        instance._query += inner_query
         return instance
 
     def limit(self, size: int) -> "QuerySet":
