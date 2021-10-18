@@ -9,6 +9,64 @@ It's build to work with asyncio to have a non-io-blocking interface to a mongodb
 ## Document
 A `Document` is a pydantic `BaseModel` with saving and queryset capabilities, this mean you can define a `class Config` inside it to tweek the validation like:
 
+
+### Simple document
+```python
+import ascynio
+from typying import Literal
+from motorized import Document, connection
+
+
+class Book(Document):
+    name: str
+    volume: int
+    status: Literal["NotRead", "Reading", "Read"] = "NotRead"
+
+
+async def main():
+    await connection.connect("mongodb://127.0.0.1:27017/test")
+    # create a new book
+    book = Book(name='Lord of the ring', volume=1)
+
+    # save it to the database, you will receive a `InsertOneResult` instance
+    await book.save()
+
+    # check it is present in the db
+    await Book.objects.count()
+
+    # see all the books presents
+    await book.objects.all_list()
+
+    # update the book
+    book.readed = True
+
+    # or from a dictionary
+    book.update({'readed': False, 'status': 'Read'})
+
+    # update the book from the database, this time you will have a `UpdateResult` from motor
+    await book.save()
+
+    # let's create a copy of the book now
+    book.id = None
+    book.volume = 2
+
+    # since you have unset the `id` field, you will have a `InsertOneResult` with a new document id
+    await book.save()
+
+    # get all the uniques book names
+    await Book.objects.distinct('name')
+    # > ['Lord of the ring']
+
+    # if you create an other book
+    await Book.objects.create(name="La forteresse du chaudron noir", volume=1)
+
+    # and now use a distinct again
+    await Book.objects.distinct('name')
+    # > ['Lord of the ring', 'La forteresse du chaudron noir']
+```
+
+### A bit more advanced
+
 ```python
 class Toon(Document):
     name: str
