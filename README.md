@@ -4,6 +4,8 @@ An ODM based on pydantic and motor
 - https://motor.readthedocs.io/en/stable/api-tornado/index.html
 - https://pydantic-docs.helpmanual.io/
 
+It's build to work with asyncio to have a non-io-blocking interface to a mongodb / documentdb database and to be fully modular to let developpers customize it.
+
 ## Document
 A `Document` is a pydantic `BaseModel` with saving and queryset capabilities, this mean you can define a `class Config` inside it to tweek the validation like:
 
