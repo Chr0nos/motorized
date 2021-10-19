@@ -202,3 +202,11 @@ class Document(BaseModel, metaclass=DocumentMeta):
             for field in self.__fields__.values() if field.name not in self.Mongo.local_fields
         ])
         return f'{self.__class__.__name__}({fields})'
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # allow any private attribute to be passed
+        if name.startswith('_') or name in self.Mongo.local_fields:
+            return object.__setattr__(self, name, value)
+
+        # otherwise we let pydantic decide
+        return super().__setattr__(name, value)
