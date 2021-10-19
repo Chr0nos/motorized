@@ -139,3 +139,15 @@ def test_private_attributes():
     # to avoid malicious code to come from the database into the python object.
     y = Scrapper(url='test', _page_content='test')
     assert y._page_content == None
+
+
+def test_queryset_inheritance():
+    class UserManager(QuerySet):
+        pass
+
+    class User(Document):
+        class Mongo:
+            manager_class = UserManager
+
+    assert isinstance(User.objects, UserManager)
+    assert isinstance(User.objects.copy(), UserManager), type(User.objects.copy())

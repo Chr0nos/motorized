@@ -15,7 +15,7 @@ class QuerySet:
         self.database = None
 
     def copy(self) -> "QuerySet":
-        instance = QuerySet(self.model)
+        instance = self.__class__(self.model)
         instance._query = self._query.copy()
         instance._limit = self._limit
         instance._sort = self._sort
@@ -23,7 +23,7 @@ class QuerySet:
         return instance
 
     def __repr__(self):
-        return f'<QuerySet: {self.model.__name__}: {self._query}>'
+        return f'</{self.__class__.__name__}: {self.model.__name__}: {self._query}>'
 
     @classmethod
     def from_query(cls, model: Type["Document"], query: Q) -> "QuerySet":
