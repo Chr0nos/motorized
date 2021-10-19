@@ -110,6 +110,14 @@ class Document(BaseModel, metaclass=DocumentMeta):
             update={'$set': update_dict}
         )
 
+    @classmethod
+    def _is_field_to_save(cls, field_name: str) -> bool:
+        return (
+            not field_name.startswith('_') and
+            field_name not in cls.Mongo.local_fields and
+            field_name in cls.__fields__
+        )
+
     async def to_mongo(self) -> Dict:
         """Convert the current model dictionary to database output dict,
         this also mean the aliased fields will be stored in the alias name instead of their
@@ -117,13 +125,13 @@ class Document(BaseModel, metaclass=DocumentMeta):
         """
         saving_data = self.dict()
 
-        # resolve ant alised fields to be saved in their alias name
+        # remove any field that is not to save, this has to be done before the aliasing resolving
+        # to allow to save/load fields that starts with _
+        saving_data = dict({k: v for k, v in saving_data.items() if self._is_field_to_save(k)})
+
+        # resolve all alised fields to be saved in their alias name
         for field in self._aliased_fields():
             saving_data[field.alias] = saving_data.pop(field.name, None)
-
-        # remove any field listed in `local_fields` section
-        for field in getattr(self.Mongo, 'local_fields', []):
-            saving_data.pop(field, None)
 
         return saving_data
 
@@ -188,10 +196,6 @@ class Document(BaseModel, metaclass=DocumentMeta):
             if allow_extra or hasattr(self, field):
                 setattr(self, field, value)
         return self
-
-    def _pop_local_fields(self):
-        for field in self.Mongo.local_fields:
-            self.__fields__.pop(field, None)
 
     def __repr__(self):
         def get_field_entry(field: Field) -> str:

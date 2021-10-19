@@ -174,6 +174,18 @@ class Foo(Document):
         local_fields = ('not_in_db',)
 ```
 
+It's also possible to declare private fields, the privates fields will not be saved in the database or be checked by pydantic (wich allow you to set private and local variables in there)
+```python
+class Scrapper(Document):
+    url: str
+    # this will not be saved in the database because it's name starts with _
+    # to read/write a _ field from the database you must use an Field(alias=_name)
+    # please not that you HAVE to set a value to it orherwise it won't exist in the model.
+    # the type hint is purely optional and will be ignored
+    _page_source: Optional[str] = None
+```
+
+
 ### Embeded documents
 Having nested document could not be more easy, just put a `BaseModel` from pydantic in the `Document` declaration like bellow
 ```python
