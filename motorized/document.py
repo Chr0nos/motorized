@@ -1,4 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
+from contextlib import contextmanager
 from typing import Optional, Union, Any, Optional, Dict, Type, List, Generator
 from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
@@ -10,6 +11,23 @@ from motorized.query import Q
 from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
 
+
+@contextmanager
+def hide_fields(instance: BaseModel, *fields):
+    """Hide fields from pydantic,
+    use carefully.
+    """
+    original_annotations = instance.__annotations__
+    original_fields = instance.__fields__
+    new_fields = original_fields.copy()
+    new_annotations = original_annotations.copy()
+    for field in fields:
+        new_fields.pop(field, None)
+        new_annotations.pop(field, None)
+    instance.__fields__ = new_fields
+    yield instance
+    instance.__fields__ = original_fields
+    instance.__annotations__ = original_annotations
 
 
 class DocumentMeta(ModelMetaclass):
@@ -170,3 +188,17 @@ class Document(BaseModel, metaclass=DocumentMeta):
             if allow_extra or hasattr(self, field):
                 setattr(self, field, value)
         return self
+
+    def _pop_local_fields(self):
+        for field in self.Mongo.local_fields:
+            self.__fields__.pop(field, None)
+
+    def __repr__(self):
+        def get_field_entry(field: Field) -> str:
+            return f"{field.name}={getattr(self, field.name)}"
+
+        fields = ", ".join([
+            get_field_entry(field)
+            for field in self.__fields__.values() if field.name not in self.Mongo.local_fields
+        ])
+        return f'{self.__class__.__name__}({fields})'

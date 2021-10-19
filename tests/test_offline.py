@@ -78,3 +78,43 @@ def test_local_fields():
     book_data = asyncio.run(book.to_mongo())
     assert book_data['name'] == book.name
     assert 'extra' not in book_data
+
+
+def test_attributes_inheritance():
+    class Personn(Document):
+        name: str
+        age: int
+
+    class Student(Personn):
+        degree: str
+        year: int
+
+    class Foo:
+        @property
+        def bar() -> bool:
+            return True
+
+    class Alumni(Foo, Student):
+        finished_year: int
+
+
+    assert 'name' in Alumni.__fields__
+    assert 'age' in Alumni.__fields__
+    assert 'finished_year' in Alumni.__fields__
+
+
+def test_stuff():
+    class Alpha(Document):
+        alpha: bool = True
+
+    class Bravo(Alpha):
+        bravo: bool = True
+
+    class Charlie(Document):
+        charlie: bool = True
+
+    class Delta(Charlie, Bravo):
+        delta: bool = True
+
+    for field in ('alpha', 'bravo', 'charlie', 'delta'):
+        assert field in Delta.__fields__, field

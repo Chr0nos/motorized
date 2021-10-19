@@ -86,7 +86,10 @@ class QuerySet:
         instance._limit = size
         return instance
 
-    def sort(self, ordering: Optional[Union[str, List[str]]]) -> "QuerySet":
+    def sort(self, *args, **kwargs):
+        return self.order_by(*args, **kwargs)
+
+    def order_by(self, ordering: Optional[Union[str, List[str]]]) -> "QuerySet":
         instance = self.copy()
         if ordering:
             instance._sort = self._sort_instruction(ordering if hasattr(ordering, '__iter__') else [ordering])
