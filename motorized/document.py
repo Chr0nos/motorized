@@ -81,11 +81,11 @@ class DocumentMeta(ModelMetaclass):
 
 
 class Document(BaseModel, metaclass=DocumentMeta):
-    # objects: QuerySet
     id: Optional[PydanticObjectId] = Field(alias='_id')
 
     class Config:
         json_encoders = {ObjectId: str}
+        validate_assignment = True
 
     class Mongo:
         manager_class = QuerySet
@@ -208,9 +208,15 @@ class Document(BaseModel, metaclass=DocumentMeta):
         return f'{self.__class__.__name__}({fields})'
 
     def __setattr__(self, name: str, value: Any) -> None:
+        if self._has_method(name):
+            raise AttributeError(f'Attribute {name} already exists')
+
         # allow any private attribute to be passed
         if name.startswith('_') or name in self.Mongo.local_fields:
             return object.__setattr__(self, name, value)
 
         # otherwise we let pydantic decide
         return super().__setattr__(name, value)
+
+    def _has_method(self, name: str) -> bool:
+        return callable(getattr(self, name, None))

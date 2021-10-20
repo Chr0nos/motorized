@@ -1,8 +1,12 @@
+import pytest
 import asyncio
 from typing import Optional, Any
+from bson.objectid import ObjectId
 from motorized.document import Document
 from motorized.queryset import QuerySet
+from motorized.types import PydanticObjectId
 from pydantic import BaseModel
+from pydantic.utils import Obj
 
 
 def test_document_type():
@@ -151,3 +155,19 @@ def test_queryset_inheritance():
 
     assert isinstance(User.objects, UserManager)
     assert isinstance(User.objects.copy(), UserManager), type(User.objects.copy())
+
+
+def test_attribute_overriding():
+    class Book(Document):
+        next: Optional[PydanticObjectId]
+
+        def next(self) -> None:
+            return
+
+    x = Book()
+    x.id = ObjectId()
+    with pytest.raises(AttributeError):
+        x.next = ObjectId()
+
+    with pytest.raises(AttributeError):
+        x.update({'next': ObjectId()})
