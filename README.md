@@ -38,10 +38,10 @@ async def main():
     await book.objects.all_list()
 
     # update the book
-    book.readed = True
+    book.status = 'Reading'
 
     # or from a dictionary
-    book.update({'readed': False, 'status': 'Read'})
+    book.update({'status': 'NotRead'})
 
     # update the book from the database, this time you will have a `UpdateResult` from motor
     await book.save()
