@@ -261,3 +261,45 @@ Let say you want all uniques email values from your users:
 ```python
 await User.objects.distinct('email', flat=True)
 ```
+
+
+### Mix differents documents in the same collection
+Sometime, you want to have multiples documents who live in the same collection because they have things in common, it's possible with motorized
+
+```python
+from motorized import Document, Q
+
+
+class Vehicule(Document):
+    name: str
+    brand: str
+    seats: int
+    kind: Literal["vehicule"] = "vehicule"
+
+    class Mongo:
+        collection = 'vehicules'
+        # here note that we don't define the kind, so if you ask for a vehicule you will
+        # also get the planes and the cars
+
+
+class Plane(Vehicule):
+    airport_origin: int
+    airport_destination: int
+    kind: Literal["plane"] = "plane"
+
+    class Mongo:
+        collection = 'vehicules'
+        filters = Q(kind='plane')
+
+
+class Car(Vehicule):
+    weels: int
+    kind: Literal["car"] = "car"
+
+    class Mongo:
+        collection = 'vehicules'
+        filters = Q(kind='car')
+
+```
+
+here all the 3 classes are stored in the same collection but their default query will be populated by `filters` value, here we base the selection on the `kind` attribute
