@@ -50,7 +50,7 @@ class DocumentMeta(ModelMetaclass):
         instance.DocumentError = DocumentError
         instance.TooManyMatchException = TooManyMatchException
         instance.DocumentNotFound = DocumentNotFound
-        instance.objects = instance.Mongo.manager_class(instance)
+        instance.objects = instance.Mongo.manager_class(instance, getattr(instance.Mongo, 'filters', None))
         return instance
 
     def _populate_default_mongo_options(cls, name: str, instance: "Document",
@@ -72,7 +72,8 @@ class DocumentMeta(ModelMetaclass):
             'collection': name.lower() + 's',
             'manager_class': QuerySet,
             'local_fields': [],
-            'class_name': name
+            'class_name': name,
+            'filters': None,
         }
 
         for attribute_name, default_value in default_settings.items():

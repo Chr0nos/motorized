@@ -7,9 +7,9 @@ from motorized.exceptions import NotConnectedException
 
 
 class QuerySet:
-    def __init__(self, model):
+    def __init__(self, model, initial_query: Optional[Q] = None):
         self.model = model
-        self._query = Q()
+        self._query = initial_query or Q()
         self._limit = None
         self._sort = None
         self.database = None
