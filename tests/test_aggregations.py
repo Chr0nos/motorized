@@ -24,3 +24,4 @@ async def test_aggregations():
     assert await Book.objects.count() == 3
     assert await Book.objects.filter(saga='lotr').count() == 2
     assert await Book.objects.filter(saga='lotr').sum('pages') == 1000
+    assert await Book.objects.filter(saga='lotr').avg('pages') == 500.0
