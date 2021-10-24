@@ -35,7 +35,7 @@ async def main():
     await Book.objects.count()
 
     # see all the books presents
-    await book.objects.all_list()
+    await book.objects.all()
 
     # update the book
     book.status = 'Reading'

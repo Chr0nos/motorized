@@ -10,6 +10,7 @@ class QuerySet:
     def __init__(self, model, initial_query: Optional[Q] = None):
         self.model = model
         self._query = initial_query or Q()
+        self._initial_query: Optional[Q] = initial_query
         self._limit = None
         self._sort = None
         self.database = None
@@ -102,12 +103,14 @@ class QuerySet:
         instance._query += other._query
         return instance
 
-    async def all_list(self) -> List["Document"]:
+    async def all(self) -> List["Document"]:
         return [instance async for instance in self]
 
-    async def map(self, func: Callable) -> None:
-        async for instance in self.all():
-            await func(instance)
+    async def map(self, func: Callable) -> List[Any]:
+        """Apply `func` to all match in the query queryset and return the result of the function
+        in a list.
+        """
+        return list([await func(instance) async for instance in self])
 
     async def distinct(self, key: str, **kwargs) -> List[Any]:
         if not self._query.is_empty():
@@ -145,7 +148,7 @@ class QuerySet:
         """Return a fresh queryset without any filtering/ordering/limiting parameter
         as fresh as new.
         """
-        instance = QuerySet(self.model)
+        instance = QuerySet(self.model, self._initial_query)
         instance.use(self.database)
         return instance
 

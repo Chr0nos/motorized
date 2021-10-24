@@ -3,17 +3,12 @@ import pytest
 from typing import Optional
 from motorized import Document
 from tests.utils import require_db
+from tests.models import Book
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_aggregations():
-    class Book(Document):
-        name: str
-        saga: Optional[str] = None
-        pages: int
-        volume: int
-
     fellowship = Book(saga='lotr', name='The fellowship of the ring', pages=456, volume=1)
     king = Book(saga='lotr', name='The return of the king', pages=544, volume=3)
     await Book.objects.create(name='entropy', pages=443, volume=1)
