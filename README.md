@@ -88,11 +88,49 @@ class Toon(Document):
         extra = 'forbid'
 ```
 
+
+
+### Embeded documents
+Having nested document could not be more easy, just put a `BaseModel` from pydantic in the `Document` declaration like bellow
+```python
+from pydantic.main import BaseModel
+from motorized.client import connection
+from motorized.document import Document
+
+class Position(BaseModel):
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+
+
+class User(Document):
+    email: str
+    has_lost_the_game: bool = True
+    position: Position
+```
+Embeded documents does not need to be `Document` because you only save the top level one.
+
+If you want to refer the current document (like the document itself) you can:
+
+```python
+from typing import Optional, List
+from motorized.document import Document
+
+class User(Document):
+    email: str
+    has_lost_the_game: bool = True
+    friends: Optional[List["User"]]
+
+
+# you will probably have to updated the forwared reference with:
+User.update_forward_refs()
+```
+
 As you can see, you can also define `class Mongo` inside the document to specify the collection to use (by default: the class name in lower case + 's')
 
 Any field or types has just to be pydantic capable definitions
 
-# Reserved attributes names
+### Reserved attributes names
 In `Document` the following attributes names are reserved by motorized
 - _aliased_fields
 - _create_in_db
@@ -111,34 +149,35 @@ In `Document` the following attributes names are reserved by motorized
 There is a technical restriction to be able to use ANY `Document`: having a `_id` field in the database, this is the only proper way that the ODM has to clearly identity a document without risking collisions.
 This field is present in any Document by default.
 
-## Document Methods
-### get_query
+###
+Document Methods
+#### get_query
 This method allow you to retrive a `Q()` instance to match the current object
 
-### save
+#### save
 Save the current instance into the database, if there is no `id` then the object will be inserted, otherwise this will be an update
 
-### commit
+#### commit
 Same as .save but the method return the instance itself instead of the result from the database
 
-### delete
+#### delete
 Delete the current instance from the database and set the .id attribute to None on the current instance
 
-### _create_in_db
+#### _create_in_db
 This method is called for new insertions in the database by the save method
 
-### _update_in_db
+#### _update_in_db
 This method is called to save the update in the database by the save method if the object has a .id wich is not None
 
-### fetch
+#### fetch
 Return a fresh instance of the current instance from the database
 
-### _transform
+#### _transform
 This method is called before the __init__ method of the pydantic `BaseModel` class and reveive the kwargs, this allow you to change fields name or add/remove fields.
 
 The call is perform just after the fetch from the database
 
-### Update
+#### Update
 This method allow you to update the model with a given dictionary, the dictionary has to pass throught the validation process of pydantic, the function update and return the instance itself.
 ```python
 class User(Document):
@@ -183,43 +222,6 @@ class Scrapper(Document):
     # please not that you HAVE to set a value to it orherwise it won't exist in the model.
     # the type hint is purely optional and will be ignored
     _page_source: Optional[str] = None
-```
-
-
-### Embeded documents
-Having nested document could not be more easy, just put a `BaseModel` from pydantic in the `Document` declaration like bellow
-```python
-from pydantic.main import BaseModel
-from motorized.client import connection
-from motorized.document import Document
-
-class Position(BaseModel):
-    x: float = 0.0
-    y: float = 0.0
-    z: float = 0.0
-
-
-class User(Document):
-    email: str
-    has_lost_the_game: bool = True
-    position: Position
-```
-Embeded documents does not need to be `Document` because you only save the top level one.
-
-If you want to refer the current document (like the document itself) you can:
-
-```python
-from typing import Optional, List
-from motorized.document import Document
-
-class User(Document):
-    email: str
-    has_lost_the_game: bool = True
-    friends: Optional[List["User"]]
-
-
-# you will probably have to updated the forwared reference with:
-User.update_forward_refs()
 ```
 
 ### Save
