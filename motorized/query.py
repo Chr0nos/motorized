@@ -1,5 +1,7 @@
 from typing import List, Any, Dict
-from motorized.keywords import Eq, Neq, In, Nin, Gte, Lte, Gt, Lt, Exists, Regex
+from motorized.keywords import (
+    Eq, Neq, In, Nin, Gte, Lte, Gt, Lt, Exists, Regex
+)
 from motorized.utils import merge_values, dict_deep_update
 
 
@@ -41,8 +43,11 @@ class Q:
     def convert_kwargs_to_query(cls, invert=False, **kwargs) -> Dict:
         query = {}
         for key, value in kwargs.items():
-            path, value = cls.apply_keywords(value, key.split('__'),
-                                              invert=invert)
+            path, value = cls.apply_keywords(
+                value,
+                key.split('__'),
+                invert=invert
+            )
             filter_dict = cls.dict_path(path, value)
             dict_deep_update(query, filter_dict,
                              on_conflict=merge_values)

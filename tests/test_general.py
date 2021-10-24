@@ -1,7 +1,4 @@
 import pytest
-from typing import Optional
-from typing import Optional
-from motorized import Document
 from tests.utils import require_db
 from tests.models import Book, Named
 
@@ -11,7 +8,9 @@ from tests.models import Book, Named
 async def test_queryset_all():
     assert await Book.objects.all() == []
 
-    book = await Book.objects.create(name='test', saga='test', pages=1, volume=1)
+    book = await Book.objects.create(
+        name='test', saga='test', pages=1, volume=1
+    )
     books = await Book.objects.all()
     assert len(books) == 1
     assert isinstance(books, list)
@@ -63,6 +62,7 @@ async def test_get_too_many_results():
     with pytest.raises(Book.TooManyMatchException):
         await Book.objects.get(name='a')
 
+
 @pytest.mark.asyncio
 @require_db
 async def test_get_no_result():
@@ -84,7 +84,10 @@ async def test_commit():
 async def test_reload():
     book = await Book.objects.create(name='test', pages=42, volume=3)
     # simulate a side effect, like an other process had changed the book
-    await Book.objects.collection.update_one({'_id': book.id}, {'$set': {'volume': 1}})
+    await Book.objects.collection.update_one(
+        {'_id': book.id},
+        {'$set': {'volume': 1}}
+    )
 
     await book.reload()
     assert book.volume == 1

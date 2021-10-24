@@ -19,7 +19,11 @@ class Connection:
 
 
 @asynccontextmanager
-async def use_client(*args, client: Optional[AsyncIOMotorClient] = None, **kwargs):
+async def use_client(
+    *args,
+    client: Optional[AsyncIOMotorClient] = None,
+    **kwargs
+):
     if not client:
         client = AsyncIOMotorClient(*args, **kwargs)
     old_client = connection.client

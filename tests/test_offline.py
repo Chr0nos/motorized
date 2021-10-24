@@ -6,7 +6,6 @@ from motorized import connection, Document, QuerySet
 from motorized.types import PydanticObjectId
 from motorized.exceptions import DocumentNotSavedError, NotConnectedException
 from pydantic import BaseModel
-from pydantic.utils import Obj
 
 
 def test_document_type():
@@ -140,7 +139,7 @@ def test_private_attributes():
     # we don't want to allow inserting private values from the constructor
     # to avoid malicious code to come from the database into the python object.
     y = Scrapper(url='test', _page_content='test')
-    assert y._page_content == None
+    assert y._page_content is None
 
 
 def test_queryset_inheritance():
@@ -152,7 +151,8 @@ def test_queryset_inheritance():
             manager_class = UserManager
 
     assert isinstance(User.objects, UserManager)
-    assert isinstance(User.objects.copy(), UserManager), type(User.objects.copy())
+    assert isinstance(User.objects.copy(), UserManager), \
+        type(User.objects.copy())
 
 
 def test_attribute_overriding():

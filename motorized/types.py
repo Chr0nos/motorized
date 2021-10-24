@@ -1,5 +1,4 @@
 from bson import ObjectId
-from pydantic.main import BaseModel
 
 
 class PydanticObjectId(ObjectId):
