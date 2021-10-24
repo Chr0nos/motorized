@@ -169,10 +169,7 @@ class QuerySet:
         if noid:
             projection['_id'] = False
 
-        cursor: AsyncIOMotorCursor = self.collection.find(
-            self._query.query,
-            projection=projection
-        )
+        cursor: AsyncIOMotorCursor = await self.find(projection=projection)
         if not flat:
             return list([item async for item in cursor])
         assert len(fields) == 1, 'You can only have one field using flat=True'

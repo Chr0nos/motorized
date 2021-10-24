@@ -121,3 +121,16 @@ async def test_drop_collection():
     await Named.objects.create(name='def')
     await Named.objects.drop()
     assert await Named.objects.count() == 0
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_values_list():
+    names = ['zack', 'alice', 'bob', 'brian', 'hector']
+    for name in names:
+        await Named.objects.create(name=name)
+
+    values = await Named.objects \
+        .order_by(['name']) \
+        .values_list('name', flat=True)
+    assert values == sorted(names)
