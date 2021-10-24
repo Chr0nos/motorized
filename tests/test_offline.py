@@ -5,6 +5,7 @@ from bson.objectid import ObjectId
 from motorized.document import Document
 from motorized.queryset import QuerySet
 from motorized.types import PydanticObjectId
+from motorized.exceptions import DocumentNotSavedError
 from pydantic import BaseModel
 from pydantic.utils import Obj
 
@@ -171,3 +172,22 @@ def test_attribute_overriding():
 
     with pytest.raises(AttributeError):
         x.update({'next': ObjectId()})
+
+
+def test_get_query():
+    class Book(Document):
+        pass
+
+    book = Book()
+    book.id = ObjectId()
+
+    assert book.get_query().query == {'_id': book.id}
+
+
+def test_get_query_not_saved():
+    class Book(Document):
+        pass
+
+    book = Book()
+    with pytest.raises(DocumentNotSavedError):
+        book.get_query()
