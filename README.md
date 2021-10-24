@@ -268,6 +268,7 @@ Sometime, you want to have multiples documents who live in the same collection b
 
 ```python
 from motorized import Document, Q
+from typing import Literal
 
 
 class Vehicule(Document):
