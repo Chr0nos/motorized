@@ -7,3 +7,10 @@ class Book(Document):
     saga: Optional[str] = None
     pages: int
     volume: int
+
+
+class Named(Document):
+    name: str
+
+    def __str__(self):
+        return self.name

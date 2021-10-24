@@ -3,7 +3,7 @@ from typing import Optional
 from typing import Optional
 from motorized import Document
 from tests.utils import require_db
-from tests.models import Book
+from tests.models import Book, Named
 
 
 @pytest.mark.asyncio
@@ -65,6 +65,14 @@ async def test_get_too_many_results():
 
 @pytest.mark.asyncio
 @require_db
+async def test_get_no_result():
+    await Book.objects.delete()
+    with pytest.raises(Book.DocumentNotFound):
+        await Book.objects.get(name='nope')
+
+
+@pytest.mark.asyncio
+@require_db
 async def test_commit():
     book = Book(name='test', pages=42, volume=3)
     assert await book.commit() == book
@@ -82,3 +90,31 @@ async def test_reload():
     assert book.volume == 1
     assert book.name == 'test'
     assert book.pages == 42
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_get_first():
+    await Named.objects.create(name='C3PO')
+
+    x = await Named.objects.first()
+    assert x.name == 'C3PO'
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_get_first_with_no_match():
+    await Named.objects.delete()
+    await Named.objects.create(name='rabbit')
+    x = await Named.objects.filter(name='carott').first()
+    assert x is None
+    assert (await Named.objects.filter(name='rabbit').first()).name == 'rabbit'
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_drop_collection():
+    await Named.objects.create(name='abc')
+    await Named.objects.create(name='def')
+    await Named.objects.drop()
+    assert await Named.objects.count() == 0

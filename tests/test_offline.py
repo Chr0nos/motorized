@@ -2,10 +2,9 @@ import pytest
 import asyncio
 from typing import Optional, Any
 from bson.objectid import ObjectId
-from motorized.document import Document
-from motorized.queryset import QuerySet
+from motorized import connection, Document, QuerySet
 from motorized.types import PydanticObjectId
-from motorized.exceptions import DocumentNotSavedError
+from motorized.exceptions import DocumentNotSavedError, NotConnectedException
 from pydantic import BaseModel
 from pydantic.utils import Obj
 
@@ -191,3 +190,14 @@ def test_get_query_not_saved():
     book = Book()
     with pytest.raises(DocumentNotSavedError):
         book.get_query()
+
+
+@pytest.mark.asyncio
+async def test_not_connected():
+    connection.client = True
+    connection.database = True
+    await connection.disconnect()
+    assert not connection.client
+    assert not connection.database
+    with pytest.raises(NotConnectedException):
+        Document.objects.collection
