@@ -102,7 +102,6 @@ def test_attributes_inheritance():
     class Alumni(Foo, Student):
         finished_year: int
 
-
     assert 'name' in Alumni.__fields__
     assert 'age' in Alumni.__fields__
     assert 'finished_year' in Alumni.__fields__
@@ -123,7 +122,6 @@ def test_inheritance_stacking():
 
     for field in ('alpha', 'bravo', 'charlie', 'delta'):
         assert field in Delta.__fields__, field
-
 
 
 def test_private_attributes():
