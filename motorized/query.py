@@ -30,8 +30,10 @@ class Q:
         return instance
 
     @classmethod
-    def raw(self, query: Dict) -> "Q":
-        instance = Q()
+    def raw(cls, query: Dict) -> "Q":
+        if not isinstance(query, dict):
+            raise TypeError(f'A dictionary was expected, got {type(query)}')
+        instance = cls()
         instance.query = query
         return instance
 
