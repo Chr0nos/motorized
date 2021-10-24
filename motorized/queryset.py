@@ -70,10 +70,11 @@ class QuerySet:
             self._query.query, **kwargs)
 
     async def first(self) -> Optional["Document"]:  # noqa: F821
-        try:
-            return await self.__aiter__().__anext__()
-        except StopAsyncIteration:
+        raw_data = await self.find_one()
+        if raw_data is None:
             return None
+        instance = self.model(**raw_data)
+        return instance
 
     async def drop(self) -> None:
         await self.collection.drop()
@@ -96,9 +97,6 @@ class QuerySet:
         instance = self.copy()
         instance._limit = size
         return instance
-
-    def sort(self, *args, **kwargs):
-        return self.order_by(*args, **kwargs)
 
     def order_by(
         self,
