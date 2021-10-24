@@ -200,3 +200,34 @@ class QuerySet:
 
     async def indexes(self):
         return [index async for index in self.collection.list_indexes()]
+
+    async def _aggregate(self, operator: str, fields: Union[str, List[str]]) -> Union[int, Dict]:
+        """Create a mongodb pipeline on all given `fields` using the operator (ex: $sum)
+        if the `fields` parameter is a List then a dictionary of the values will be returned, the
+        keys will be the fields names, if the `fields` parameter is an instance of string then the value will
+        be directly returned.
+        """
+        if isinstance(fields, str):
+            fields = [fields]
+        pipeline = [
+            {"$match": self._query.query},
+            {
+                "$group": {
+                    "_id": "total",
+                    **{field: {operator: f'${field}'} for field in fields}
+                }
+            }
+        ]
+        cursor = self.collection.aggregate(pipeline)
+        result = await cursor.next()
+        # if the list only has one element we just return the first result
+        if len(fields) == 1:
+            return result[fields[0]]
+        result.pop('_id', None)
+        return result
+
+    async def sum(self, fields: Union[str, List[str]]) -> Union[int, Dict]:
+        return await self._aggregate('$sum', fields)
+
+    async def avg(self, fields: Union[str, List[str]]) -> Union[float, Dict]:
+        return await self._aggregate('$avg', fields)
