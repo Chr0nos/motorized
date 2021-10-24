@@ -1,6 +1,5 @@
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
 from contextlib import contextmanager
-from typing import Optional, Union, Any, Optional, Dict, Type, List, Generator
+from typing import Optional, Union, Any, Dict, Type, List, Generator
 from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
@@ -36,7 +35,8 @@ class DocumentMeta(ModelMetaclass):
         # optdict.pop('__annotations__', {}).pop('objects', None)
         instance: Type[Document] = super().__new__(cls, name, bases, optdict)
         if name not in ('Document',):
-            cls._populate_default_mongo_options(cls, name, instance, optdict.get('Mongo'))
+            cls._populate_default_mongo_options(
+                cls, name, instance, optdict.get('Mongo'))
 
         class DocumentError(MotorizedError):
             pass
@@ -50,7 +50,8 @@ class DocumentMeta(ModelMetaclass):
         instance.DocumentError = DocumentError
         instance.TooManyMatchException = TooManyMatchException
         instance.DocumentNotFound = DocumentNotFound
-        instance.objects = instance.Mongo.manager_class(instance, getattr(instance.Mongo, 'filters', None))
+        instance.objects = instance.Mongo.manager_class(
+            instance, getattr(instance.Mongo, 'filters', None))
         return instance
 
     def _populate_default_mongo_options(cls, name: str, instance: "Document",
@@ -58,7 +59,8 @@ class DocumentMeta(ModelMetaclass):
         class Mongo:
             pass
 
-        # forbid re-utilisation of the Mongo class between inheritance of the class
+        # forbid re-utilisation of the Mongo class between
+        # inheritance of the class
         try:
             if instance.Mongo.class_name != name:
                 instance.Mongo = Mongo()
@@ -121,14 +123,20 @@ class Document(BaseModel, metaclass=DocumentMeta):
 
     async def to_mongo(self) -> Dict:
         """Convert the current model dictionary to database output dict,
-        this also mean the aliased fields will be stored in the alias name instead of their
-        name in the document declaration.
+        this also mean the aliased fields will be stored in the alias name
+        instead of their name in the document declaration.
         """
         saving_data = self.dict()
 
-        # remove any field that is not to save, this has to be done before the aliasing resolving
-        # to allow to save/load fields that starts with _
-        saving_data = dict({k: v for k, v in saving_data.items() if self._is_field_to_save(k)})
+        # remove any field that is not to save, this has to be done
+        # before the aliasing resolving to allow to save/load fields
+        # that starts with _
+        saving_data = dict(
+            {
+                k: v for k, v in saving_data.items()
+                if self._is_field_to_save(k)
+            }
+        )
 
         # resolve all alised fields to be saved in their alias name
         for field in self._aliased_fields():
@@ -151,8 +159,8 @@ class Document(BaseModel, metaclass=DocumentMeta):
 
     async def delete(self) -> "Document":
         """Delete the current instance from the database,
-        to the deleted the instance need to have a .id set, in any case the function
-        will return the instance itself
+        to the deleted the instance need to have a .id set, in any case the
+        function will return the instance itself
         """
         try:
             qs = self.objects.from_query(self, self.get_query())
@@ -171,7 +179,10 @@ class Document(BaseModel, metaclass=DocumentMeta):
     def _aliased_fields(cls) -> Generator[List[ModelField], None, None]:
         """Return the list of fields with aliases
         """
-        return [field for field in cls.__fields__.values() if field.name != field.alias]
+        return [
+            field for field in cls.__fields__.values()
+            if field.name != field.alias
+        ]
 
     def _transform(self, **kwargs) -> Dict:
         """Override this method to change the input database before having it
@@ -186,8 +197,8 @@ class Document(BaseModel, metaclass=DocumentMeta):
         return self.update(model_data)
 
     def update(self, input_data: Dict) -> "Document":
-        """Update the current instance with the given `input_data` after validation
-        return the object itself (without saving it in the database)
+        """Update the current instance with the given `input_data` after
+        validation return the object itself (without saving it in the database)
         """
         validate_model(self, input_data)
         allow_extra: bool = getattr(self.Config, 'extra', 'ignore') == 'allow'
@@ -204,7 +215,8 @@ class Document(BaseModel, metaclass=DocumentMeta):
 
         fields = ", ".join([
             get_field_entry(field)
-            for field in self.__fields__.values() if field.name not in self.Mongo.local_fields
+            for field in self.__fields__.values()
+            if field.name not in self.Mongo.local_fields
         ])
         return f'{self.__class__.__name__}({fields})'
 
