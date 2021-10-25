@@ -306,3 +306,39 @@ class Car(Vehicule):
 ```
 
 here all the 3 classes are stored in the same collection but their default query will be populated by `filters` value, here we base the selection on the `kind` attribute
+
+# FastAPI
+Since all the models are technicaly pydantics BaseModels, this mean the complete ODM works fine out of the box with fastapi and nothing prevent you to have something like:
+```python
+import asyncio
+from fastapi import APIRouter
+from typing import List
+from motorized import Document, connection
+
+
+async def setup() -> None:
+    await connection.connect('mongodb://127.0.0.1:27017/test')
+
+
+# you should handle this is in the fastapi dedicated event
+asyncio.run(setup())
+router = APIRouter()
+
+
+class Book(Document):
+    name: str
+    pages: int
+    volume: int
+
+
+@router.post('/books', response_model=Book)
+async def create_book(book: Book):
+    # don't let the user enforce his own id, let the db decide
+    book.id = None
+    return await book.commit()
+
+
+@router.get('/books'/, response_model=List[Book])
+async def get_books():
+    return await Book.objects.all()
+```
