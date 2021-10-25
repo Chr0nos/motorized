@@ -338,7 +338,7 @@ async def create_book(book: Book):
     return await book.commit()
 
 
-@router.get('/books'/, response_model=List[Book])
+@router.get('/books', response_model=List[Book])
 async def get_books():
     return await Book.objects.all()
 ```
