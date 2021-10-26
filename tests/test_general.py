@@ -1,4 +1,5 @@
 import pytest
+from motorized import Document, Q
 from tests.utils import require_db
 from tests.models import Book, Named
 
@@ -134,3 +135,21 @@ async def test_values_list():
         .order_by(['name']) \
         .values_list('name', flat=True)
     assert values == sorted(names)
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_or():
+    class User(Document):
+        first_name: str
+        last_name: str
+
+    charles = await User.objects.create(first_name='charles', last_name='dwarf')
+    alice = await User.objects.create(first_name='alice', last_name='cooper')
+    bob = await User.objects.create(first_name='bob', last_name='robberts')
+
+    query = Q(first_name='charles') | Q(last_name='cooper')
+    result = await User.objects.filter(query).all()
+    assert charles in result
+    assert alice in result
+    assert bob not in result

@@ -1,4 +1,4 @@
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Tuple
 from motorized.keywords import (
     Eq, Neq, In, Nin, Gte, Lte, Gt, Lt, Exists, Regex
 )
@@ -23,10 +23,10 @@ class Q:
     def __init__(self, **kwargs) -> None:
         self.query = self.convert_kwargs_to_query(**kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Q: {self.query}>'
 
-    def copy(self):
+    def copy(self) -> "Q":
         instance = Q()
         instance.query = self.query.copy()
         return instance
@@ -80,7 +80,7 @@ class Q:
         return out
 
     @classmethod
-    def apply_keywords(cls, raw_value, path: List[str], invert=False):
+    def apply_keywords(cls, raw_value: Any, path: List[str], invert: bool = False) -> Tuple[str, Any]:
         if invert and path[-1] not in KEYWORDS:
             path.append('eq')
 
@@ -102,3 +102,9 @@ class Q:
 
     def __eq__(self, other: "Q") -> bool:
         return self.query == other.query
+
+    def __or__(self, other: "Q") -> "Q":
+        return Q.raw({'$or': [self.query, other.query]})
+
+    def __and__(self, other: "Q") -> "Q":
+        return Q.raw({'$and': [self.query, other.query]})
