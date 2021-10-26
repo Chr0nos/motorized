@@ -310,35 +310,64 @@ here all the 3 classes are stored in the same collection but their default query
 # FastAPI
 Since all the models are technicaly pydantics BaseModels, this mean the complete ODM works fine out of the box with fastapi and nothing prevent you to have something like:
 ```python
-import asyncio
-from fastapi import APIRouter
-from typing import List
+from fastapi import FastAPI, status
+
+from typing import List, Optional
+from pydantic import BaseModel, Field
 from motorized import Document, connection
+from motorized.types import InputObjectId
+from datetime import datetime
 
 
-async def setup() -> None:
+app = FastAPI()
+
+
+@app.on_event('startup')
+async def setup_app():
     await connection.connect('mongodb://127.0.0.1:27017/test')
 
 
-# you should handle this is in the fastapi dedicated event
-asyncio.run(setup())
-router = APIRouter()
+@app.on_event('shutdown')
+async def close_app():
+    await connection.disconnect()
 
 
-class Book(Document):
-    name: str
-    pages: int
-    volume: int
+class BookInput(BaseModel):
+    """This model contains only the fields writable by the user
+    """
+    name: Optional[str]
+    pages: Optional[int]
+    volume: Optional[int]
 
 
-@router.post('/books', response_model=Book)
-async def create_book(book: Book):
-    # don't let the user enforce his own id, let the db decide
-    book.id = None
-    return await book.commit()
+class Book(Document, BookInput):
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-@router.get('/books', response_model=List[Book])
+@app.post('/books', response_model=Book, status_code=status.HTTP_201_CREATED)
+async def create_book(book: BookInput):
+    return await Book(**book.dict()).commit()
+
+
+@app.get('/books', response_model=List[Book])
 async def get_books():
     return await Book.objects.all()
+
+
+@app.get('/books/{id}')
+async def get_book(id: InputObjectId):
+    return await Book.objects.get(_id=id)
+
+
+@app.patch('/books/{id}')
+async def update_book(id: InputObjectId, update: BookInput):
+    book = await Book.objects.get(_id=id)
+    book.update(update.dict(exclude_unset=True))
+    await book.save()
+    return book
+
+
+@app.delete('/bools/{id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_book(id: InputObjectId):
+    await Book.objects.filter(_id=id).delete()
 ```
