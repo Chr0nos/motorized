@@ -16,6 +16,18 @@ or if you are using poetry
 poetry add motorized
 ```
 
+## Scementic organisation
+There is basicaly 3 main classes that you will use with motorized:
+- Q
+- Document
+- QuerySet
+
+Each of them has it's own purpose, when the `Document` describe ONE row of your datas, the `Q` object is a conviniance class to write mongodb queries, it does not perform any verification it just format, then the `QuerySet` is the manager of a `Document` class.
+
+A `Q` object has absolutlely no relation with any `Document` or `QuerySet`, it's just the query object.
+The `QuerySet` known of wich model it will work and manipulate the collection and set of `Document`
+The `Document` validate input/output data and their insertion/update in the database.
+
 ## Document
 A `Document` is a pydantic `BaseModel` with saving and queryset capabilities, this mean you can define a `class Config` inside it to tweek the validation like:
 
@@ -205,6 +217,35 @@ print(bill.age)
 # show 42
 ```
 
+
+## QuerySet
+You can override the default `Document.objects` class by specifing `manager_class` in the `Mongo` class from the document like:
+```python
+from typing import Optional
+from datetime import datetime
+from pydantic import Field
+from motorized import Document, QuerySet
+
+
+class EmployeeManager(QuerySet):
+    async def last(self) -> Optional["Employee"]:
+        return await self.filter(date_left__isnull=True).order_by(['-date_joined']).first()
+
+
+class Employee(Document):
+    date_joined: datetime = Field(default_factory=datetime.utcnow)
+    date_left: Optional[datetime]
+
+    class Mongo:
+        manager_class = EmployeeManager
+
+
+async def main():
+    # now you can do
+    last_employee = await Employee.objects.last()
+
+```
+
 ## Examples
 ### Connect / Disconnect
 ```python
@@ -354,6 +395,7 @@ class BookInput(BaseModel):
     volume: Optional[int]
 
 
+# Note that the order of this inheritance is important
 class Book(Document, BookInput):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
