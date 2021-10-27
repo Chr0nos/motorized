@@ -246,6 +246,27 @@ async def main():
 
 ```
 
+### Collection
+Since in python, we are "We are all consenting adults", motorized will not try to prevent you using the collection directly and handle the database, if you use the `collection` attribute from `QuerySet` we assume that you know what you are doing
+
+```python
+class Book(Document):
+    title: str
+    pages: int
+
+
+# to access the collection attribute use:
+Book.objects.collection
+
+# note: you must be connected to a database before or you will have a `NotConnectedException`
+
+# example of aggreation from collection
+pipeline = ["put here your awesome pipeline"]
+results = await Book.objects.collection.aggregate(pipeline)
+```
+
+Note that while acessing the `.collection` attribute, you are in charge, the query will not do anything else for you (no ordering, no filtering)
+
 ## Examples
 ### Connect / Disconnect
 ```python
