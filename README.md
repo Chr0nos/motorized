@@ -6,6 +6,16 @@ An ODM based on pydantic and motor
 
 It's build to work with asyncio to have a non-io-blocking interface to a mongodb / documentdb database and to be fully modular to let developpers customize it.
 
+## Getting started
+```shell
+pip install motorized
+```
+or if you are using poetry
+
+```shell
+poetry add motorized
+```
+
 ## Document
 A `Document` is a pydantic `BaseModel` with saving and queryset capabilities, this mean you can define a `class Config` inside it to tweek the validation like:
 
@@ -63,6 +73,10 @@ async def main():
     # and now use a distinct again
     await Book.objects.distinct('name')
     # > ['Lord of the ring', 'La forteresse du chaudron noir']
+
+
+if __name__ = "__main__":
+    asyncio.run(main())
 ```
 
 ### A bit more advanced
