@@ -367,7 +367,7 @@ async def update_book(id: InputObjectId, update: BookInput):
     return book
 
 
-@app.delete('/bools/{id}', status_code=status.HTTP_204_NO_CONTENT)
+@app.delete('/books/{id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_book(id: InputObjectId):
     await Book.objects.filter(_id=id).delete()
 ```
