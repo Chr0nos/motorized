@@ -2,9 +2,10 @@ from typing import (
     Any, List, Callable, Dict, Optional, AsyncGenerator, Tuple, Union, Type
 )
 from motor.motor_asyncio import (
-    AsyncIOMotorCollection, AsyncIOMotorDatabase, AsyncIOMotorCursor
+    AsyncIOMotorCollection, AsyncIOMotorDatabase, AsyncIOMotorCursor,
+    AsyncIOMotorClientSession
 )
-
+from pymongo import ASCENDING, DESCENDING
 from motorized.query import Q
 from motorized.client import connection
 from motorized.exceptions import NotConnectedException
@@ -17,7 +18,8 @@ class QuerySet:
         self._initial_query: Optional[Q] = initial_query
         self._limit = None
         self._sort = None
-        self.database = None
+        self.database: Optional[AsyncIOMotorDatabase] = None
+        self._session: Optional[AsyncIOMotorClientSession] = None
 
     def copy(self) -> "QuerySet":
         instance = self.__class__(self.model)
@@ -44,6 +46,11 @@ class QuerySet:
         """
         self.database = database
 
+    def use_session(self, session: AsyncIOMotorClientSession) -> "QuerySet":
+        instance = self.copy()
+        instance._session = session
+        return instance
+
     async def __aiter__(self) -> AsyncGenerator["Document", None]:  # noqa: F821,E501
         cursor = await self.find()
         async for data in cursor:
@@ -54,6 +61,10 @@ class QuerySet:
         instance = self.model(*args, **kwargs)
         await instance.save()
         return instance
+
+    async def insert_one(self, data: Dict, **kwargs):
+        kwargs.setdefault('session', self._session)
+        return await self.collection.insert_one(data, **kwargs)
 
     @property
     def collection(self) -> AsyncIOMotorCollection:
@@ -131,14 +142,17 @@ class QuerySet:
         return await self.collection.distinct(key, **kwargs)
 
     async def aggregate(self, pipeline, **kwargs) -> Any:
+        kwargs.setdefault('session', self._session)
         return await self.collection.aggregate(pipeline, **kwargs)
 
     async def find(self, **kwargs) -> AsyncIOMotorCursor:
+        kwargs.setdefault('session', self._session)
         cursor = self.collection.find(self._query.query, **kwargs)
         return await self._paginate_cursor(cursor)
 
-    async def find_one(self) -> Dict:
-        return await self.collection.find_one(self._query.query)
+    async def find_one(self, **kwargs) -> Dict:
+        kwargs.setdefault('session', self._session)
+        return await self.collection.find_one(self._query.query, **kwargs)
 
     async def get(self, **kwargs) -> "Document":  # noqa: F821
         instance = self.filter(**kwargs)
@@ -194,8 +208,8 @@ class QuerySet:
         """
         def generate_tuple(word) -> Tuple[str, int]:
             if word.startswith('-'):
-                return (word[1:], -1)
-            return (word, 1)
+                return (word[1:], DESCENDING)
+            return (word, ASCENDING)
 
         return [generate_tuple(word) for word in order]
 
@@ -204,15 +218,22 @@ class QuerySet:
             self._query.query, limit=1) > 0
 
     async def delete(self, **kwargs):
+        kwargs.setdefault('session', self._session)
         return await self.collection.delete_many(self._query.query, **kwargs)
 
     async def delete_one(self, **kwargs):
+        kwargs.setdefault('session', self._session)
         return await self.collection.delete_one(self._query.query, **kwargs)
 
-    async def pop(self, **kwargs) -> "Document":  # noqa: F821
+    async def pop(
+        self,
+        session: Optional[AsyncIOMotorClientSession] = None,
+        **kwargs
+    ) -> "Document":  # noqa: F821
         instance = self.filter(**kwargs)
         document_dict = await instance.collection.find_one_and_delete(
-            instance.query._query
+            instance.query._query,
+            session=session or self._session
         )
         document = self.model(**document_dict)
         return document
@@ -223,7 +244,8 @@ class QuerySet:
     async def _aggregate(
         self,
         operator: str,
-        fields: Union[str, List[str]]
+        fields: Union[str, List[str]],
+        **kwargs
     ) -> Union[int, Dict]:
         """Create a mongodb pipeline on all given `fields` using the operator
         (ex: $sum) if the `fields` parameter is a List then a dictionary of the
@@ -231,6 +253,7 @@ class QuerySet:
         if the `fields` parameter is an instance of string then the value will
         be directly returned.
         """
+        kwargs.setdefault('session', self._session)
         if isinstance(fields, str):
             fields = [fields]
         pipeline = [
@@ -242,7 +265,7 @@ class QuerySet:
                 }
             }
         ]
-        cursor = self.collection.aggregate(pipeline)
+        cursor = self.collection.aggregate(pipeline, **kwargs)
         result = await cursor.next()
         # if the list only has one element we just return the first result
         if len(fields) == 1:

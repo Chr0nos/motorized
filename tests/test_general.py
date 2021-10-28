@@ -1,5 +1,6 @@
+from motorized.exceptions import DocumentNotSavedError
 import pytest
-from motorized import Document, Q
+from motorized import Document, Q, connection
 from tests.utils import require_db
 from tests.models import Book, Named
 
@@ -153,3 +154,30 @@ async def test_or():
     assert charles in result
     assert alice in result
     assert bob not in result
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_delete():
+    zack = await Named.objects.create(name='zack')
+    alice = await Named.objects.create(name='alice')
+
+    await zack.delete()
+    with pytest.raises(DocumentNotSavedError):
+        await zack.reload()
+    await alice.reload()
+
+
+# @pytest.mark.asyncio
+# @require_db
+# async def test_session():
+#     await Book.objects.create(name='foo', pages=1, volume=1)
+
+#     async with await connection.client.start_session() as session:
+#         session.start_transaction()
+#         queryset = Book.objects.use_session(session)
+#         assert queryset._session == session
+#         await queryset.delete()
+#         await session.abort_transaction()
+
+#     assert await Book.objects.count() == 1

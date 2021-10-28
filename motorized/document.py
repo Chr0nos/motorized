@@ -103,7 +103,7 @@ class Document(BaseModel, metaclass=DocumentMeta):
         return Q(_id=document_id)
 
     async def _create_in_db(self, creation_dict: Dict) -> InsertOneResult:
-        response = await self.objects.collection.insert_one(creation_dict)
+        response = await self.objects.insert_one(creation_dict)
         self.id = response.inserted_id
         return response
 
@@ -163,8 +163,9 @@ class Document(BaseModel, metaclass=DocumentMeta):
         function will return the instance itself
         """
         try:
-            qs = self.objects.from_query(self, self.get_query())
-            await qs.delete_one()
+            await self.objects.filter(self.get_query()).delete_one()
+            # qs = self.objects.from_query(self, self.get_query())
+            # await qs.delete_one()
         except DocumentNotSavedError:
             pass
         setattr(self, 'id', None)
