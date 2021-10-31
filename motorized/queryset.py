@@ -306,5 +306,14 @@ class QuerySet:
         updater = QueryDict(**kwargs)
         return await self.collection.update_many(
             self._query.query,
-            {"$set": updater}
+            {"$set": updater},
+            session=self._session
+        )
+
+    async def unset(self, fields_names: List[str]) -> UpdateResult:
+        fields = list(['.'.join(item.split('__')) for item in fields_names])
+        return await self.collection.update_many(
+            self._query.query,
+            {'$unset': fields},
+            session=self._session
         )
