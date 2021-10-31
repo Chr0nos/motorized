@@ -209,3 +209,7 @@ async def test_queryset_update():
     await blah.reload()
     assert blah.pages == 42
     assert blah.volume == 3
+
+    await Book.objects.update(added_field=True)
+    foo_dict = await Book.objects.filter(foo.get_query()).find_one()
+    assert foo_dict["added_field"] is True
