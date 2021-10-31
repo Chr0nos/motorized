@@ -1,14 +1,16 @@
 from typing import (
-    Any, List, Callable, Dict, Optional, AsyncGenerator, Tuple, Union, Type
+    Any, Generator, List, Callable, Dict, Optional, AsyncGenerator, Tuple, Union, Type
 )
 from motor.motor_asyncio import (
     AsyncIOMotorCollection, AsyncIOMotorDatabase, AsyncIOMotorCursor,
     AsyncIOMotorClientSession
 )
 from pymongo import ASCENDING, DESCENDING
+from pymongo.results import InsertOneResult
 from motorized.query import Q
 from motorized.client import connection
 from motorized.exceptions import NotConnectedException
+from contextlib import contextmanager
 
 
 class QuerySet:
@@ -20,13 +22,17 @@ class QuerySet:
         self._sort = None
         self.database: Optional[AsyncIOMotorDatabase] = None
         self._session: Optional[AsyncIOMotorClientSession] = None
+        # _collection_name allow you to override used collection name,
+        # priority order is: _collection_name > Document.Mongo.collection
+        self._collection_name: Optional[str] = None
 
     def copy(self) -> "QuerySet":
         instance = self.__class__(self.model)
         instance._query = self._query.copy()
         instance._limit = self._limit
         instance._sort = self._sort
-        instance.use(self.database)
+        instance._collection_name = self._collection_name
+        instance.use_database(self.database)
         return instance
 
     def __repr__(self):
@@ -41,7 +47,7 @@ class QuerySet:
         instance._query = query
         return instance
 
-    def use(self, database: Optional[AsyncIOMotorDatabase]) -> None:
+    def use_database(self, database: Optional[AsyncIOMotorDatabase]) -> None:
         """if `database` is None then the default database will be used.
         """
         self.database = database
@@ -50,6 +56,22 @@ class QuerySet:
         instance = self.copy()
         instance._session = session
         return instance
+
+    @contextmanager
+    def collection_name(self, collection_name: str) -> Generator[None, None, "QuerySet"]:
+        """Allow the user to override the destination collection,
+        use this context manager to copy items from one collection to an other.
+        usage:
+        ```python
+        item = await Document.objects.first()
+        with Document.objects.collection_name("migration"):
+            await item.save()
+        ```
+        """
+        original_collection_name = self._collection_name
+        self._collection_name = collection_name
+        yield self
+        self._collection_name = original_collection_name
 
     async def __aiter__(self) -> AsyncGenerator["Document", None]:  # noqa: F821,E501
         cursor = await self.find()
@@ -62,19 +84,20 @@ class QuerySet:
         await instance.save()
         return instance
 
-    async def insert_one(self, data: Dict, **kwargs):
+    async def insert_one(self, data: Dict, **kwargs) -> InsertOneResult:
         kwargs.setdefault('session', self._session)
         return await self.collection.insert_one(data, **kwargs)
 
     @property
     def collection(self) -> AsyncIOMotorCollection:
+        collection_name: str = self._collection_name or self.model.Mongo.collection
         if self.database is not None:
-            return getattr(self.database, self.model.Mongo.collection)
+            return getattr(self.database, collection_name)
         if not connection.database:
             raise NotConnectedException(
                 'You need to use connection.connect before using collection'
             )
-        return getattr(connection.database, self.model.Mongo.collection)
+        return getattr(connection.database, collection_name)
 
     async def count(self, **kwargs) -> int:
         return await self.collection.count_documents(
@@ -173,7 +196,7 @@ class QuerySet:
         parameter as fresh as new.
         """
         instance = QuerySet(self.model, self._initial_query)
-        instance.use(self.database)
+        instance.use_database(self.database)
         return instance
 
     async def values_list(self, fields: List[str], flat=False, noid=False):
