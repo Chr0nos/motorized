@@ -6,8 +6,8 @@ from motor.motor_asyncio import (
     AsyncIOMotorClientSession
 )
 from pymongo import ASCENDING, DESCENDING
-from pymongo.results import InsertOneResult
-from motorized.query import Q
+from pymongo.results import InsertOneResult, UpdateResult
+from motorized.query import Q, QueryDict
 from motorized.client import connection
 from motorized.exceptions import NotConnectedException
 from contextlib import contextmanager
@@ -301,3 +301,10 @@ class QuerySet:
 
     async def avg(self, fields: Union[str, List[str]]) -> Union[float, Dict]:
         return await self._aggregate('$avg', fields)
+
+    async def update(self, **kwargs) -> UpdateResult:
+        updater = QueryDict(**kwargs)
+        return await self.collection.update_many(
+            self._query.query,
+            {"$set": updater}
+        )

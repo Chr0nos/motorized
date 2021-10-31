@@ -1,6 +1,7 @@
 from motorized.exceptions import DocumentNotSavedError
 import pytest
 from motorized import Document, Q, connection
+from pymongo.results import UpdateResult
 from tests.utils import require_db
 from tests.models import Book, Named
 
@@ -181,3 +182,30 @@ async def test_delete():
 #         await session.abort_transaction()
 
 #     assert await Book.objects.count() == 1
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_queryset_override_collection_name():
+    assert Book.objects.collection.name == 'books'
+    with Book.objects.collection_name('migrate'):
+        assert Named.objects.collection.name == 'nameds'
+        assert Book.objects.collection.name == 'migrate'
+    assert Book.objects.collection.name == 'books'
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_queryset_update():
+    foo = await Book.objects.create(name='Foo', pages=1, volume=1)
+    blah = await Book.objects.create(name='Blah', pages=42, volume=3)
+
+    update = await Book.objects.filter(name='Foo').update(pages=100, volume=2)
+    assert isinstance(update, UpdateResult)
+    await foo.reload()
+    assert foo.pages == 100
+    assert foo.volume == 2
+
+    await blah.reload()
+    assert blah.pages == 42
+    assert blah.volume == 3

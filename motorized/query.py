@@ -18,6 +18,34 @@ KEYWORDS = {
     'regex': Regex
 }
 
+def dict_path(path: List[str], value: Any = None) -> Dict:
+    """Construct a dictionary from a path to hold the given value,
+    example:
+    d = QuerySet.dict_path(['a', 'b', 'c'], 42)
+    d == {'a': {'b': {'c': 42}}}
+    """
+    out = {}
+    node = out
+    last_node = None
+    last_key = None
+    for k in path:
+        node[k] = {}
+        last_node = node
+        node = node[k]
+        last_key = k
+    last_node[last_key] = value
+    return out
+
+
+class QueryDict(dict):
+    def __init__(self, **kwargs) -> None:
+        data = {}
+        for key, value in kwargs.items():
+            path = key.split('__')
+            node = dict_path(path, value)
+            dict_deep_update(data, node, on_conflict=merge_values)
+        super().__init__(**data)
+
 
 class Q:
     def __init__(self, **kwargs) -> None:
@@ -48,7 +76,7 @@ class Q:
                 key.split('__'),
                 invert=invert
             )
-            filter_dict = cls.dict_path(path, value)
+            filter_dict = dict_path(path, value)
             dict_deep_update(query, filter_dict,
                              on_conflict=merge_values)
         return query
@@ -59,25 +87,6 @@ class Q:
         for node in path:
             x = x[node]
         return x
-
-    @staticmethod
-    def dict_path(path: List[str], value: Any = None) -> Dict:
-        """Construct a dictionary from a path to hold the given value,
-        example:
-        d = QuerySet.dict_path(['a', 'b', 'c'], 42)
-        d == {'a': {'b': {'c': 42}}}
-        """
-        out = {}
-        node = out
-        last_node = None
-        last_key = None
-        for k in path:
-            node[k] = {}
-            last_node = node
-            node = node[k]
-            last_key = k
-        last_node[last_key] = value
-        return out
 
     @classmethod
     def apply_keywords(cls, raw_value: Any, path: List[str], invert: bool = False) -> Tuple[str, Any]:
