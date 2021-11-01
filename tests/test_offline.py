@@ -155,22 +155,6 @@ def test_queryset_inheritance():
         type(User.objects.copy())
 
 
-def test_attribute_overriding():
-    class Book(Document):
-        next: Optional[PydanticObjectId]
-
-        def next(self) -> None:
-            return
-
-    x = Book()
-    x.id = ObjectId()
-    with pytest.raises(AttributeError):
-        x.next = ObjectId()
-
-    with pytest.raises(AttributeError):
-        x.update({'next': ObjectId()})
-
-
 def test_get_query():
     class Book(Document):
         pass
