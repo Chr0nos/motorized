@@ -253,6 +253,8 @@ class QuerySet:
         session: Optional[AsyncIOMotorClientSession] = None,
         **kwargs
     ) -> "Document":  # noqa: F821
+        """Retrieve a document and delete it from the database.
+        """
         instance = self.filter(**kwargs)
         document_dict = await instance.collection.find_one_and_delete(
             instance.query._query,
@@ -311,9 +313,18 @@ class QuerySet:
         )
 
     async def unset(self, fields_names: List[str]) -> UpdateResult:
+        """Remove fields from documents
+        example:
+        ```python
+        await Book.objects.filter(some_field__exists=True).unset(['some_field'])
+        ```
+        Note this could break the validation of the ODM and lead to data not
+        being consitent anymore, use it carefully
+        """
         fields = list(['.'.join(item.split('__')) for item in fields_names])
+        fields_dict = {field: "" for field in fields}
         return await self.collection.update_many(
             self._query.query,
-            {'$unset': fields},
+            {'$unset': fields_dict},
             session=self._session
         )

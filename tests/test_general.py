@@ -213,3 +213,16 @@ async def test_queryset_update():
     await Book.objects.update(added_field=True)
     foo_dict = await Book.objects.filter(foo.get_query()).find_one()
     assert foo_dict["added_field"] is True
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_queryset_unset():
+    foo = await Book.objects.create(name='foo', pages=0, volume=0)
+    await Book.objects.create(name='test', volume=1, pages=42)
+    await Book.objects.filter(name='test').unset(['pages', 'volume'])
+    data = await Book.objects.filter(name='test').find_one()
+    assert data['name'] == 'test'
+    assert 'pages' not in data
+    assert 'volume' not in data
+    assert '_id' in data
