@@ -222,9 +222,6 @@ class Document(BaseModel, metaclass=DocumentMeta):
         return f'{self.__class__.__name__}({fields})'
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if self._has_method(name):
-            raise AttributeError(f'Attribute {name} already exists')
-
         # allow any private attribute to be passed
         if name.startswith('_') or name in self.Mongo.local_fields:
             return object.__setattr__(self, name, value)
