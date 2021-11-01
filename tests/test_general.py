@@ -226,3 +226,4 @@ async def test_queryset_unset():
     assert 'pages' not in data
     assert 'volume' not in data
     assert '_id' in data
+    await foo.reload()
