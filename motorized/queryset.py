@@ -302,9 +302,24 @@ class QuerySet:
         return await self._aggregate('$sum', fields)
 
     async def avg(self, fields: Union[str, List[str]]) -> Union[float, Dict]:
+        """Return the average for the given field or list of fields,
+        if the fields is only one string the result will be the number directly
+        otherwise it will be a dictionary with fields names as keys and
+        averages as values
+        """
         return await self._aggregate('$avg', fields)
 
     async def update(self, **kwargs) -> UpdateResult:
+        """Perform an update on the current queryset, matching documents will
+        be updated according to the parameters
+        ex:
+        ```python
+        User.objects.filter(is_admin).update(is_admin=False)
+        ```
+
+        Note this function WILL NOT PERFORM ANY VALIDATION on the input data
+        it's up to you, be carefull and validate it before.
+        """
         updater = QueryDict(**kwargs)
         return await self.collection.update_many(
             self._query.query,
