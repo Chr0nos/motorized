@@ -1,4 +1,5 @@
 from typing import Optional
+from motorized.queryset import QuerySet
 from pydantic import BaseModel, Field
 from motorized import Document
 

@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from inspect import isclass
 from typing import Optional, Union, Any, Dict, Type, List, Generator
 from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
@@ -31,8 +32,19 @@ def hide_fields(instance: BaseModel, *fields):
 
 class DocumentMeta(ModelMetaclass):
     def __new__(cls, name, bases, optdict: Dict) -> Type['Document']:
-        # optdict.pop('objects', None)
-        # optdict.pop('__annotations__', {}).pop('objects', None)
+        # remove any reference to `objects` in the class
+        # we only declare it to be readable and conveniant with the IDE
+        # the filtering of objects is only effective if you declare a class
+        # to allow to give values or a real field using this name.
+        try:
+            objects = optdict['__annotations__']['objects']
+            if isclass(objects):
+                optdict['__annotations__'].pop('objects')
+                optdict.pop('objects', None)
+        except KeyError:
+            pass
+
+        # we allocate the BaseModel with pydantic metaclass
         instance: Type[Document] = super().__new__(cls, name, bases, optdict)
         if name not in ('Document',):
             cls._populate_default_mongo_options(
@@ -84,6 +96,7 @@ class DocumentMeta(ModelMetaclass):
 
 
 class Document(BaseModel, metaclass=DocumentMeta):
+    objects: QuerySet
     id: Optional[PydanticObjectId] = Field(alias='_id', read_only=True)
 
     class Config:

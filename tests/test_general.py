@@ -236,6 +236,7 @@ async def test_document_updater():
         name='Billy',
         position={"x": 0.0, "y": 1.0, "z": 1.0}
     )
+    # await billy.save()
     assert Player.get_readonly_fields() == ['id', 'name', 'golds', 'hp']
     model = Player.get_updater_model()
     payload = {
