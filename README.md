@@ -303,6 +303,7 @@ class Scrapper(Document):
 ### Save
 ```python
 import asyncio
+from typying import List
 from motorized.client import connection
 from motorized.document import Document
 

@@ -84,7 +84,7 @@ class DocumentMeta(ModelMetaclass):
 
 
 class Document(BaseModel, metaclass=DocumentMeta):
-    id: Optional[PydanticObjectId] = Field(alias='_id')
+    id: Optional[PydanticObjectId] = Field(alias='_id', read_only=True)
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -144,10 +144,13 @@ class Document(BaseModel, metaclass=DocumentMeta):
 
         return saving_data
 
-    async def save(self) -> Union[InsertOneResult, UpdateResult]:
+    async def save(self, force_insert: bool = False
+    ) -> Union[InsertOneResult, UpdateResult]:
         data = await self.to_mongo()
         document_id = data.pop('_id', None)
-        if document_id is None:
+        if document_id is None or force_insert:
+            if force_insert:
+                data['_id'] = document_id
             return await self._create_in_db(data)
         return await self._update_in_db(data)
 
@@ -164,8 +167,6 @@ class Document(BaseModel, metaclass=DocumentMeta):
         """
         try:
             await self.objects.filter(self.get_query()).delete_one()
-            # qs = self.objects.from_query(self, self.get_query())
-            # await qs.delete_one()
         except DocumentNotSavedError:
             pass
         setattr(self, 'id', None)
@@ -231,3 +232,31 @@ class Document(BaseModel, metaclass=DocumentMeta):
 
     def _has_method(self, name: str) -> bool:
         return callable(getattr(self, name, None))
+
+    @classmethod
+    def get_readonly_fields(cls):
+        return list([
+            field_name
+            for field_name, field in cls.__fields__.items()
+            if field.field_info.extra.get('read_only', False)
+        ])
+
+    @classmethod
+    def get_updater_model(cls) -> BaseModel:
+        """This class factory function create a new BaseModel from this model
+        with all the fields that are not marked as `read_only`, all the fields
+        are optional in the generated model
+        """
+        ignore = cls.get_readonly_fields() + list(cls.Mongo.local_fields)
+        fields = dict({
+            field_name: field for field_name, field in cls.__fields__.items()
+            if field_name not in ignore
+        })
+
+        updater = type('ModelUpdater', (BaseModel,), {
+            '__annotations__': {
+                field_name: Optional[field.type_]
+                for field_name, field in fields.items()
+            },
+        })
+        return updater
