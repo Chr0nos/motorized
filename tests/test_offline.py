@@ -1,11 +1,13 @@
 import pytest
-import asyncio
+
+from tests.models import Player, Named
+
+from pydantic import BaseModel
 from typing import Optional, Any
 from bson.objectid import ObjectId
+
 from motorized import connection, Document, QuerySet
-from motorized.types import PydanticObjectId
 from motorized.exceptions import DocumentNotSavedError, NotConnectedException
-from pydantic import BaseModel
 
 
 def test_document_type():
@@ -70,7 +72,8 @@ def test_document_custom_manager_class():
         not isinstance(Encyclopedia.objects, BookManager)
 
 
-def test_local_fields():
+@pytest.mark.asyncio
+async def test_local_fields():
     class Book(Document):
         name: str
         extra: int
@@ -79,7 +82,7 @@ def test_local_fields():
             local_fields = ('extra',)
 
     book = Book(name='lotr', extra=2)
-    book_data = asyncio.run(book.to_mongo())
+    book_data = await book.to_mongo()
     assert book_data['name'] == book.name
     assert 'extra' not in book_data
 
@@ -123,13 +126,14 @@ def test_inheritance_stacking():
         assert field in Delta.__fields__, field
 
 
-def test_private_attributes():
+@pytest.mark.asyncio
+async def test_private_attributes():
     class Scrapper(Document):
         url: str
         _page_content: Optional[Any] = None
 
     x = Scrapper(url='google.com')
-    saving_data = asyncio.run(x.to_mongo())
+    saving_data = await x.to_mongo()
     assert '_page_content' not in saving_data
     assert 'url' in saving_data
     assert not Scrapper._is_field_to_save('_page_content')
@@ -183,3 +187,52 @@ async def test_not_connected():
     assert not connection.database
     with pytest.raises(NotConnectedException):
         Document.objects.collection
+
+
+@pytest.mark.asyncio
+async def test_document_updater():
+    billy = Player(
+        name='Billy',
+        position={"x": 0.0, "y": 1.0, "z": 1.0}
+    )
+    assert Player.get_readonly_fields() == ['id', 'name', 'golds', 'hp']
+    model = Player.get_updater_model()
+    payload = {
+        "id": "ignore me",
+        "name": "Simon",
+        "position": {"x": 2.0, "w": 4.0},
+        "ignore_me": True,
+        "hp": {"left": 42}
+    }
+    data = model(**payload).dict(exclude_unset=True)
+    billy.deep_update(data)
+    assert billy.position == {"x": 2.0, "y": 1.0, "z": 1.0}
+    assert billy.name == 'Billy'
+    assert billy.id is None
+    assert not hasattr(billy, "ignore_me")
+    assert billy.hp.left == 10, "this field is read only"
+
+    # this update should reset the positions since a None has been
+    # passed as position.
+    billy.deep_update({'position': None})
+    assert billy.position == {'x': 0.0, 'y': 0.0, 'z': 0.0}
+
+    billy.position = {'x': 10.0, 'y': 10.0, 'z': 10.0}
+    # this update should leave the actual positions as they are since no values
+    # were changed
+    billy.deep_update({'position': {}})
+    assert billy.position == {'x': 10.0, 'y': 10.0, 'z': 10.0}
+
+    # this update should reset the positions
+    billy.update({'position': {}})
+    assert billy.position == {"x": 0.0, "y": 0.0, "z": 0.0}
+
+    assert isinstance(billy.__repr__(), str)
+
+
+@pytest.mark.asyncio
+async def test_document_delete_without_id():
+    bob = Named(name="bob")
+    await bob.delete()
+    assert bob.name == "bob"
+    assert bob.id is None

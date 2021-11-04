@@ -3,7 +3,7 @@ import pytest
 from motorized import Document, Q, connection
 from pymongo.results import UpdateResult
 from tests.utils import require_db
-from tests.models import Book, Named, Player
+from tests.models import Book, Named
 
 
 @pytest.mark.asyncio
@@ -227,24 +227,3 @@ async def test_queryset_unset():
     assert 'volume' not in data
     assert '_id' in data
     await foo.reload()
-
-
-@pytest.mark.asyncio
-@require_db
-async def test_document_updater():
-    billy = Player(
-        name='Billy',
-        position={"x": 0.0, "y": 1.0, "z": 1.0}
-    )
-    # await billy.save()
-    assert Player.get_readonly_fields() == ['id', 'name', 'golds', 'hp']
-    model = Player.get_updater_model()
-    payload = {
-        "name": "Simon",
-        "position": {"x": 2.0}
-    }
-    data = model(**payload).dict(exclude_unset=True)
-    # print(data)
-    # print(billy)
-    # billy.update(data)
-    # raise Exception

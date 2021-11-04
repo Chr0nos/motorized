@@ -1,4 +1,5 @@
-from typing import Any, MutableMapping, Callable
+from pydantic import BaseModel
+from typing import Any, MutableMapping, Callable, Dict, Optional
 
 
 def take_last_value(key: str, target: Any, *sources: Any) -> Any:
@@ -70,3 +71,31 @@ def dict_deep_update(target: MutableMapping,
         else:
             target[k] = on_conflict(k, val, *src_values)
     return target
+
+
+def deep_update_model(
+        model: BaseModel,
+        data: Optional[Dict],
+        reset_with_none: bool = True
+    ) -> BaseModel:
+    """Update the given model with `data` paylaod (dict) merging childs
+    to allow a partial update without loading default values for missing fields
+
+    eratas: since this is a recursive function, this will not work with
+    circular dependencies and can raise a RecursionError.
+    """
+    if data is None:
+        return model
+    for field, value in data.items():
+        node = getattr(model, field, None)
+        is_nested_document = isinstance(node, BaseModel)
+        if is_nested_document:
+            # if the user pass a None to a nested attribute, we want to reset
+            # the node.
+            if value is None and reset_with_none:
+                setattr(model, field, {})
+            else:
+                deep_update_model(node, data[field])
+        else:
+            setattr(model, field, value)
+    return model

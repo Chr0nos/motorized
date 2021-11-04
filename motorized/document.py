@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from inspect import isclass
 from typing import Optional, Union, Any, Dict, Type, List, Generator
 from pydantic import BaseModel, Field, validate_model
@@ -10,24 +9,7 @@ from motorized.queryset import QuerySet
 from motorized.query import Q
 from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
-
-
-@contextmanager
-def hide_fields(instance: BaseModel, *fields):
-    """Hide fields from pydantic,
-    use carefully.
-    """
-    original_annotations = instance.__annotations__
-    original_fields = instance.__fields__
-    new_fields = original_fields.copy()
-    new_annotations = original_annotations.copy()
-    for field in fields:
-        new_fields.pop(field, None)
-        new_annotations.pop(field, None)
-    instance.__fields__ = new_fields
-    yield instance
-    instance.__fields__ = original_fields
-    instance.__annotations__ = original_annotations
+from motorized.utils import deep_update_model
 
 
 class DocumentMeta(ModelMetaclass):
@@ -224,6 +206,9 @@ class Document(BaseModel, metaclass=DocumentMeta):
                 setattr(self, field, value)
         return self
 
+    def deep_update(self, input_data: Dict, **kwargs) -> "Document":
+        return deep_update_model(self, input_data, **kwargs)
+
     def __repr__(self):
         def get_field_entry(field: Field) -> str:
             return f"{field.name}={getattr(self, field.name)}"
@@ -243,9 +228,6 @@ class Document(BaseModel, metaclass=DocumentMeta):
         # otherwise we let pydantic decide
         return super().__setattr__(name, value)
 
-    def _has_method(self, name: str) -> bool:
-        return callable(getattr(self, name, None))
-
     @classmethod
     def get_readonly_fields(cls):
         return list([
@@ -255,7 +237,7 @@ class Document(BaseModel, metaclass=DocumentMeta):
         ])
 
     @classmethod
-    def get_updater_model(cls) -> BaseModel:
+    def get_updater_model(cls) -> Type[BaseModel]:
         """This class factory function create a new BaseModel from this model
         with all the fields that are not marked as `read_only`, all the fields
         are optional in the generated model
@@ -266,10 +248,15 @@ class Document(BaseModel, metaclass=DocumentMeta):
             if field_name not in ignore
         })
 
-        updater = type('ModelUpdater', (BaseModel,), {
+        optdict = {
             '__annotations__': {
                 field_name: Optional[field.type_]
                 for field_name, field in fields.items()
             },
-        })
+            **{
+                field_name: field.field_info
+                for field_name, field in fields.items()
+            }
+        }
+        updater = type('ModelUpdater', (BaseModel,), optdict)
         return updater

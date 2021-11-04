@@ -19,7 +19,7 @@ class Connection:
 
 
 @asynccontextmanager
-async def use_client(
+async def client(
     *args,
     client: Optional[AsyncIOMotorClient] = None,
     **kwargs
