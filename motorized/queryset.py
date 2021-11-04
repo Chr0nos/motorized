@@ -1,5 +1,6 @@
 from typing import (
-    Any, Generator, List, Callable, Dict, Optional, AsyncGenerator, Tuple, Union, Type
+    Any, Generator, List, Callable, Dict, Optional, AsyncGenerator, Tuple,
+    Union, Type
 )
 from motor.motor_asyncio import (
     AsyncIOMotorCollection, AsyncIOMotorDatabase, AsyncIOMotorCursor,
@@ -18,8 +19,9 @@ class QuerySet:
         self.model = model
         self._query = initial_query or Q()
         self._initial_query: Optional[Q] = initial_query
-        self._limit = None
-        self._sort = None
+        self._limit: Optional[int] = None
+        self._skip: Optional[int] = None
+        self._sort: Optional[List[Tuple[str, int]]] = None
         self.database: Optional[AsyncIOMotorDatabase] = None
         self._session: Optional[AsyncIOMotorClientSession] = None
         # _collection_name allow you to override used collection name,
@@ -31,6 +33,7 @@ class QuerySet:
         instance._query = self._query.copy()
         instance._limit = self._limit
         instance._sort = self._sort
+        instance._skip = self._skip
         instance._collection_name = self._collection_name
         instance.use_database(self.database)
         return instance
@@ -58,7 +61,8 @@ class QuerySet:
         return instance
 
     @contextmanager
-    def collection_name(self, collection_name: str) -> Generator[None, None, "QuerySet"]:
+    def collection_name(
+            self, collection_name: str) -> Generator[None, None, "QuerySet"]:
         """Allow the user to override the destination collection,
         use this context manager to copy items from one collection to an other.
         usage:
@@ -127,9 +131,24 @@ class QuerySet:
         instance._query += inner_query
         return instance
 
-    def limit(self, size: int) -> "QuerySet":
+    def limit(self, size: Optional[int]) -> "QuerySet":
+        """Limit the result of the query to the specified size,
+        passing a `None` as size will remove any limitations
+        """
+        if size is not None and size < 0:
+            raise ValueError(size)
         instance = self.copy()
         instance._limit = size
+        return instance
+
+    def skip(self, offset: Optional[int]) -> "QuerySet":
+        """Request an offset from the database to the results, if you pass a
+        `None` as offset then no offset will be applied
+        """
+        if offset is not None and offset < 0:
+            raise ValueError(offset)
+        instance = self.copy()
+        instance._skip = offset
         return instance
 
     def order_by(
@@ -221,6 +240,8 @@ class QuerySet:
             cursor = cursor.sort(self._sort)
         if self._limit:
             cursor = cursor.limit(self._limit)
+        if self._skip:
+            cursor = cursor.skip(self._skip)
         return cursor
 
     @staticmethod
@@ -266,6 +287,25 @@ class QuerySet:
     async def indexes(self):
         return [index async for index in self.collection.list_indexes()]
 
+    def _get_paginated_pipeline_basis(self) -> List[Dict]:
+        """Construct a List[Dict] with the pagination information for the
+        pipeline (ordering/limit/offset)
+        if no pagination information are present in the QuerySet an empty
+        list will be returned.
+        """
+        pipeline = []
+        if self._sort:
+            pipeline.append({
+                "$sort": {
+                    field_name: order for field_name, order in self._sort
+                }
+            })
+        if self._limit:
+            pipeline.append({"$limit": self._limit + (self._skip or 0)})
+        if self._skip:
+            pipeline.append({"$skip": self._skip})
+        return pipeline
+
     async def _aggregate(
         self,
         operator: str,
@@ -281,7 +321,8 @@ class QuerySet:
         kwargs.setdefault('session', self._session)
         if isinstance(fields, str):
             fields = [fields]
-        pipeline = [
+        pipeline = self._get_paginated_pipeline_basis()
+        pipeline.extend([
             {"$match": self._query.query},
             {
                 "$group": {
@@ -289,7 +330,8 @@ class QuerySet:
                     **{field: {operator: f'${field}'} for field in fields}
                 }
             }
-        ]
+        ])
+
         cursor = self.collection.aggregate(pipeline, **kwargs)
         result = await cursor.next()
         # if the list only has one element we just return the first result

@@ -227,3 +227,25 @@ async def test_queryset_unset():
     assert 'volume' not in data
     assert '_id' in data
     await foo.reload()
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_queryset_aggregation_pagination():
+    for letter in 'abcdef':
+        await Named.objects.create(name=letter)
+    await Named.objects.update(extra=1)
+
+    lst = await Named.objects \
+        .order_by(['name']) \
+        .limit(3) \
+        .skip(3) \
+        .values_list('name', flat=True)
+    assert lst == ['d', 'e', 'f']
+
+    # here we are testing the QuerySet._agregate pagination
+    sum_extra = Named.objects.order_by(['name']).skip(3).limit(3).sum('extra')
+    assert await sum_extra == 3
+
+    sum_extra = Named.objects.order_by(['name']).skip(3).limit(1).sum('extra')
+    assert await sum_extra == 1
