@@ -250,13 +250,14 @@ class Document(BaseModel, metaclass=DocumentMeta):
 
         optdict = {
             '__annotations__': {
-                field_name: Optional[field.type_]
+                field_name: Optional[field.outer_type_]
                 for field_name, field in fields.items()
             },
-            **{
-                field_name: field.field_info
-                for field_name, field in fields.items()
-            }
+            # **{
+            #     field_name: field.field_info
+            #     for field_name, field in fields.items()
+            # }
         }
-        updater = type('ModelUpdater', (BaseModel,), optdict)
+        class_name = cls.__class__.__name__
+        updater = type(f'{class_name}Updater', (BaseModel,), optdict)
         return updater
