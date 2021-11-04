@@ -391,6 +391,7 @@ from fastapi import FastAPI, status
 
 from typing import List, Optional
 from pydantic import BaseModel, Field
+from pydantic.types import NonNegativeInt
 from motorized import Document, connection
 from motorized.types import InputObjectId
 from datetime import datetime
@@ -428,8 +429,12 @@ async def create_book(book: BookInput):
 
 
 @app.get('/books', response_model=List[Book])
-async def get_books():
-    return await Book.objects.all()
+async def get_books(
+    offset: Optional[NonNegativeInt] = None,
+    limit: Optional[NonNegativeInt] = 10
+):
+    # it's ok to pass None as skip or limit here.
+    return await Book.objects.skip(offset).limit(limit).all()
 
 
 @app.get('/books/{id}')
