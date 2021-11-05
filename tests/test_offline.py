@@ -3,7 +3,7 @@ import pytest
 from tests.models import Player, Named
 
 from pydantic import BaseModel
-from typing import Optional, Any
+from typing import Optional, Any, get_args
 from bson.objectid import ObjectId
 
 from motorized import connection, Document, QuerySet
@@ -236,3 +236,19 @@ async def test_document_delete_without_id():
     await bob.delete()
     assert bob.name == "bob"
     assert bob.id is None
+
+
+def test_document_ordering_fields():
+    fields_literal = Player.get_public_ordering_fields()
+    ordering_values = list(get_args(fields_literal))
+    expected_orderings = [
+        'golds', '-golds',
+        'hp__left', '-hp__left',
+        'hp__max', '-hp__max',
+        'id', '-id',
+        'name', '-name',
+        'position__x', '-position__x',
+        'position__y', '-position__y',
+        'position__z', '-position__z'
+    ]
+    assert ordering_values == expected_orderings

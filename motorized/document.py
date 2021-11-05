@@ -1,5 +1,5 @@
 from inspect import isclass
-from typing import Optional, Union, Any, Dict, Type, List, Generator
+from typing import Optional, Union, Any, Dict, Type, List, Generator, Literal
 from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
@@ -9,7 +9,7 @@ from motorized.queryset import QuerySet
 from motorized.query import Q
 from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
-from motorized.utils import deep_update_model
+from motorized.utils import deep_update_model, get_all_fields_names
 
 
 class DocumentMeta(ModelMetaclass):
@@ -230,11 +230,19 @@ class Document(BaseModel, metaclass=DocumentMeta):
 
     @classmethod
     def get_readonly_fields(cls):
-        return list([
-            field_name
+        return list(cls.get_marked_fields('read_only').keys())
+
+    @classmethod
+    def get_marked_fields(
+            cls, mark: str,
+            value=True,
+            default=False
+    ) -> Dict[str, ModelField]:
+        return dict({
+            field_name: field
             for field_name, field in cls.__fields__.items()
-            if field.field_info.extra.get('read_only', False)
-        ])
+            if field.field_info.extra.get(mark, default) == value
+        })
 
     @classmethod
     def get_updater_model(cls) -> Type[BaseModel]:
@@ -261,3 +269,20 @@ class Document(BaseModel, metaclass=DocumentMeta):
         class_name = cls.__class__.__name__
         updater = type(f'{class_name}Updater', (BaseModel,), optdict)
         return updater
+
+    @classmethod
+    def get_public_ordering_fields(cls) -> Literal:
+        """Return a literal with all visibles fields from an external use
+        perspective (ignore all Fields(private=True))
+        """
+        def is_ignored(field_name: str, field: ModelField) -> bool:
+            if field.field_info.extra.get('private', False):
+                return True
+            if field_name in cls.Mongo.local_fields:
+                return True
+            return False
+
+        fields = get_all_fields_names(cls, field_skip_func=is_ignored)
+        fields.extend([f'-{field_name}' for field_name in fields])
+        fields.sort(key=lambda x: x if not x.startswith('-') else x[1:])
+        return Literal[tuple(fields)]

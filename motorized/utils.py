@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import Any, MutableMapping, Callable, Dict, Optional
+from pydantic.fields import ModelField
+from typing import Any, MutableMapping, Callable, Dict, Optional, List
 
 
 def take_last_value(key: str, target: Any, *sources: Any) -> Any:
@@ -99,3 +100,25 @@ def deep_update_model(
         else:
             setattr(model, field, value)
     return model
+
+
+def get_all_fields_names(
+    model: BaseModel,
+    prefix: str = '',
+    separator: str = '__',
+    field_skip_func: Optional[Callable[[str, ModelField], bool]] = None
+) -> List[str]:
+    fields = []
+    for field_name, field in model.__fields__.items():
+        if field_skip_func and field_skip_func(field_name, field):
+            continue
+        if issubclass(field.type_, BaseModel):
+            fields.extend(get_all_fields_names(
+                field.type_,
+                f'{prefix}{field_name}{separator}',
+                separator,
+                field_skip_func=field_skip_func
+            ))
+        else:
+            fields.append(prefix + field_name)
+    return fields
