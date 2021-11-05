@@ -8,7 +8,8 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.9"
 uvicorn = "^0.15.0"
-motorized = "^0.3.6"
+motorized = "^0.4.0"
+fastapi = "^0.70.0"
 
 [tool.poetry.dev-dependencies]
 
