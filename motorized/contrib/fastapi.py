@@ -27,10 +27,6 @@ class RestApiView:
     def model(self) -> Type[Document]:
         return self.queryset.model
 
-    @property
-    def read_model(self) -> BaseModel:
-        return self.model
-
     def register(self, router: APIRouter) -> None:
         for action, path, method, status_code in self.actions:
             if not self.is_implemented(action):
@@ -44,6 +40,10 @@ class RestApiView:
             )
 
     def get_response_model(self, action: Action) -> Type[BaseModel]:
+        """Returns response model for the given action,
+        you can override this method if you create new actions or if you want
+        to customise the response model (ex: hide fields to user)
+        """
         try:
             return getattr(self, action).__annotations__['return']
         except KeyError:
@@ -64,25 +64,12 @@ class RestApiView:
 class GenericApiView(RestApiView):
     def __init__(self):
         updater = self.model.get_updater_model()
-        self.create.__annotations__.update({
-            'payload': updater,
-            'return': self.read_model
-        })
-        self.patch.__annotations__.update({
-            'payload': updater,
-            'return': self.read_model
-        })
+        self.create.__annotations__.update({'payload': updater})
+        self.patch.__annotations__.update({'payload': updater})
         self.list.__annotations__.update({
             'order_by': Optional[List[self.model.get_public_ordering_fields()]],
-            'return': List[self.read_model]
         })
-        self.retrieve.__annotations__.update({
-            'return': Optional[self.read_model]
-        })
-        self.patch.__annotations__.update({
-            'payload': updater,
-            'return': self.read_model
-        })
+        self.patch.__annotations__.update({'payload': updater})
 
     async def create(self, payload):
         instance = self.model(**payload.dict())
