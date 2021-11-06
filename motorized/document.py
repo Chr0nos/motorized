@@ -252,7 +252,7 @@ class Document(BaseModel, metaclass=DocumentMeta):
         cls,
         exclude: Optional[List[Tuple[BaseModel, Optional[List[str]]]]] = None
     ) -> Type[BaseModel]:
-        return cls.get_filtered_model(exclude, ['read_only'])
+        return cls.get_filtered_model(exclude, ['read_only', 'private'])
 
     @classmethod
     def get_reader_model(

@@ -7,6 +7,7 @@ from tests.models import Named
 from tests.utils import require_db
 
 from motorized.exceptions import DocumentNotSavedError
+from motorized import Document, Field
 
 
 @pytest.mark.asyncio
@@ -47,7 +48,30 @@ async def test_save_with_custom_id():
 async def test_document_reader_model():
     bob = Named(name="bob")
     await bob.save()
-    reader = bob.get_reader_model()(**bob.dict())
+    reader_model = bob.get_reader_model()
+    reader = reader_model(**bob.dict(by_alias=True))
     assert isinstance(reader, BaseModel)
     output = reader.dict()
     assert output['id'] == bob.id
+
+    print(bob.__fields__)
+    print(reader.__fields__)
+
+    assert reader_model.__fields__['id'].alias == '_id'
+
+
+def test_document_reader_aliasing():
+
+    class Test(Document):
+        x: int = Field(alias='y')
+
+    assert Test.__fields__['x'].alias == 'y'
+
+
+def test_document_reader_with_contraints():
+    class Animal(Document):
+        legs: int = Field(ge=0, lt=5)
+
+    # print(Animal.__fields__)
+    # print(dir(Animal))
+    reader = Animal.get_reader_model()

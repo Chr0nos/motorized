@@ -15,8 +15,9 @@ def test_model_build():
     public_model = model_map(Player, field_filtering, dynamic_model_node_factory)
     assert 'id' in public_model.__fields__
     assert 'comment' not in public_model.__fields__
+    the_id = ObjectId()
     input_data = {
-        'id': ObjectId(),
+        '_id': the_id,
         'name': 'billy',
         'golds': 42,
         'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
@@ -24,4 +25,5 @@ def test_model_build():
     }
     instance = public_model(**input_data, ignoreme=True, comment="Hide me !")
     output = instance.dict()
+    output['_id'] = output.pop('id')
     assert output == input_data

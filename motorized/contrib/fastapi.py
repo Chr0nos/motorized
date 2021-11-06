@@ -63,7 +63,6 @@ class RestApiView:
             return False
 
 
-
 class GenericApiView(RestApiView):
     response_model = None
 

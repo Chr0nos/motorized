@@ -1,8 +1,10 @@
 from pydantic import BaseModel
 from pydantic.fields import ModelField
+from pydantic.types import ConstrainedInt
 from typing import (
     Any, MutableMapping, Callable, Dict, Optional, List, Type, Union
 )
+from bson import ObjectId
 
 
 def take_last_value(key: str, target: Any, *sources: Any) -> Any:
@@ -146,27 +148,39 @@ def get_all_fields(
 
 
 def dynamic_model_node_factory(
+    model: BaseModel,
     node_data: Dict,
     annotate_all_optional: bool = False
 ) -> BaseModel:
+    def select_annoted_type_from_field(field: Union[ModelField, BaseModel]) -> Type:
+        if not isinstance(field, ModelField):
+            return field if not annotate_all_optional else Optional[field]
+        field_type = model.__annotations__.get(field.name, field.type_)
+        return field_type if not annotate_all_optional else Optional[field_type]
+
     annotations = dict({
-        field.name: field.outer_type_ if not annotate_all_optional else Optional[field.outer_type_]
+        field_name: select_annoted_type_from_field(field)
+        for field_name, field in node_data.items()
+    })
+    optdict = {'__annotations__': annotations}
+    optdict.update({
+        field.name: field.field_info
         for field in node_data.values()
         if isinstance(field, ModelField)
     })
-    annotations.update({
-        field_name: field if not annotate_all_optional else Optional[field]
-        for field_name, field in node_data.items()
-        if not isinstance(field, ModelField)
-    })
-    optdict = {'__annotations__': annotations}
-    return type('DynamicModel', (BaseModel,), optdict)
+
+    class Config:
+        json_encoders = {ObjectId: lambda x: str(x)}
+
+    optdict['Config'] = Config
+    model = type('DynamicModel', (BaseModel,), optdict)
+    return model
 
 
 def model_map(
     model: BaseModel,
     func: Callable[[BaseModel, ModelField], Optional[Any]],
-    node_factory: Callable[[Any, bool], Optional[Any]] = lambda data, _: data,
+    node_factory: Callable[[BaseModel, Any, bool], Optional[Any]] = lambda model, data, _: data,
     annotate_all_optional: bool = False
 ):
     output = {}
@@ -184,4 +198,4 @@ def model_map(
             )
         else:
             output[field.name] = field
-    return node_factory(output, annotate_all_optional)
+    return node_factory(model, output, annotate_all_optional)

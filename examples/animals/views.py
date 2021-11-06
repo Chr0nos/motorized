@@ -6,7 +6,6 @@ from models import Animal
 
 class MyView(GenericApiView):
     queryset = Animal.objects
-    reader_model = Animal
 
 
 router = APIRouter(prefix='/animals')
