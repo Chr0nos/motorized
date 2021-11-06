@@ -48,10 +48,10 @@ class RestApiView:
             return getattr(self, action).__annotations__['return']
         except KeyError:
             if action == 'list':
-                return List[self.model]
+                return List[self.reader_model]
             if action == 'delete':
                 return None
-            return self.model
+            return self.reader_model
 
     def is_implemented(self, action: Action) -> bool:
         try:
@@ -62,7 +62,11 @@ class RestApiView:
 
 
 class GenericApiView(RestApiView):
+    reader_model = None
+
     def __init__(self):
+        if not self.reader_model:
+            self.reader_model = self.model.get_reader_model()
         updater = self.model.get_updater_model()
         self.create.__annotations__.update({'payload': updater})
         self.patch.__annotations__.update({'payload': updater})

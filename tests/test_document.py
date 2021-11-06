@@ -1,6 +1,7 @@
 import pytest
 from bson import ObjectId
 from pymongo.results import InsertOneResult, UpdateResult
+from pydantic import BaseModel
 
 from tests.models import Named
 from tests.utils import require_db
@@ -39,3 +40,14 @@ async def test_save_with_custom_id():
     assert bob.id == custom_id
 
     assert isinstance(await bob.save(), UpdateResult)
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_document_reader_model():
+    bob = Named(name="bob")
+    await bob.save()
+    reader = bob.get_reader_model()(**bob.dict())
+    assert isinstance(reader, BaseModel)
+    output = reader.dict()
+    assert output['id'] == bob.id

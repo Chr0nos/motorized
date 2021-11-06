@@ -252,6 +252,26 @@ class Document(BaseModel, metaclass=DocumentMeta):
         cls,
         exclude: Optional[List[Tuple[BaseModel, Optional[List[str]]]]] = None
     ) -> Type[BaseModel]:
+        return cls.get_filtered_model(exclude, ['read_only'])
+
+    @classmethod
+    def get_reader_model(
+        cls,
+        exclude: Optional[List[Tuple[BaseModel, Optional[List[str]]]]] = None,
+        exclude_fields_marks: Optional[List[str]] = None
+    ) -> Type[BaseModel]:
+        if exclude_fields_marks is None:
+            exclude_fields_marks = []
+        reader = cls.get_filtered_model(exclude, ['private'] + exclude_fields_marks)
+        model = type(cls.__name__ + 'Reader', (reader,), {})
+        return model
+
+    @classmethod
+    def get_filtered_model(
+        cls,
+        exclude: Optional[List[Tuple[BaseModel, Optional[List[str]]]]] = None,
+        exclude_fields_marks: Optional[List[str]] = None
+    ) -> Type[BaseModel]:
         """This class factory function create a new BaseModel from this model
         with all the fields that are not marked as `read_only`, all the fields
         are optional in the generated model
@@ -272,11 +292,14 @@ class Document(BaseModel, metaclass=DocumentMeta):
                         return True
             return False
 
-        def field_filtering(model: BaseModel, field: ModelField) -> Optional[ModelField]:
+        def field_filtering(model: BaseModel,
+                            field: ModelField) -> Optional[ModelField]:
             if is_excluded(model, field):
                 return None
-            if field.field_info.extra.get('read_only'):
-                return None
+            if exclude_fields_marks:
+                for mark in exclude_fields_marks:
+                    if field.field_info.extra.get(mark):
+                        return None
             if field.name in cls.Mongo.local_fields:
                 return None
             return field
