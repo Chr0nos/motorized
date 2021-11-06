@@ -202,7 +202,8 @@ async def test_document_updater():
         "name": "Simon",
         "position": {"x": 2.0, "w": 4.0},
         "ignore_me": True,
-        "hp": {"left": 42}
+        "hp": {"left": 42},
+        "golds": 2
     }
     data = model(**payload).dict(exclude_unset=True)
     billy.deep_update(data)
@@ -210,6 +211,7 @@ async def test_document_updater():
     assert billy.name == 'Billy'
     assert billy.id is None
     assert not hasattr(billy, "ignore_me")
+    assert billy.golds == 0
     assert billy.hp.left == 10, "this field is read only"
 
     # this update should reset the positions since a None has been

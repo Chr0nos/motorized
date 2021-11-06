@@ -9,7 +9,10 @@ from motorized.queryset import QuerySet
 from motorized.query import Q
 from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
-from motorized.utils import deep_update_model, get_all_fields_names
+from motorized.utils import (
+    deep_update_model, get_all_fields_names,
+    model_map, dynamic_model_node_factory
+)
 
 
 class DocumentMeta(ModelMetaclass):
@@ -250,25 +253,14 @@ class Document(BaseModel, metaclass=DocumentMeta):
         with all the fields that are not marked as `read_only`, all the fields
         are optional in the generated model
         """
-        ignore = cls.get_readonly_fields() + list(cls.Mongo.local_fields)
-        fields = dict({
-            field_name: field for field_name, field in cls.__fields__.items()
-            if field_name not in ignore
-        })
+        def field_filtering(_, field: ModelField) -> Optional[ModelField]:
+            if field.field_info.extra.get('read_only'):
+                return None
+            if field.name in cls.Mongo.local_fields:
+                return None
+            return field
 
-        optdict = {
-            '__annotations__': {
-                field_name: Optional[field.outer_type_]
-                for field_name, field in fields.items()
-            },
-            # **{
-            #     field_name: field.field_info
-            #     for field_name, field in fields.items()
-            # }
-        }
-        class_name = cls.__class__.__name__
-        updater = type(f'{class_name}Updater', (BaseModel,), optdict)
-        return updater
+        return model_map(cls, field_filtering, dynamic_model_node_factory, True)
 
     @classmethod
     def get_public_ordering_fields(cls) -> Literal:

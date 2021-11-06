@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from pydantic.fields import ModelField
-from typing import Any, MutableMapping, Callable, Dict, Optional, List
+from typing import (
+    Any, MutableMapping, Callable, Dict, Optional, List, Type, Union
+)
 
 
 def take_last_value(key: str, target: Any, *sources: Any) -> Any:
@@ -122,3 +124,64 @@ def get_all_fields_names(
         else:
             fields.append(prefix + field_name)
     return fields
+
+
+def get_all_fields(
+    model: BaseModel,
+    is_ignored: Optional[Callable[[BaseModel, ModelField], bool]] = None,
+    node_factory: Type = dict
+) -> Dict[str, ModelField]:
+    fields = {}
+    for field_name, field in model.__fields__.items():
+        if is_ignored and is_ignored(model, field):
+            continue
+        if issubclass(field.type_, BaseModel):
+            fields[field_name] = get_all_fields(
+                model=field.type_,
+                is_ignored=is_ignored
+            )
+        else:
+            fields[field_name] = field
+    return node_factory(fields)
+
+
+def dynamic_model_node_factory(
+    node_data: Dict,
+    annotate_all_optional: bool = False
+) -> BaseModel:
+    annotations = dict({
+        field.name: field.outer_type_ if not annotate_all_optional else Optional[field.outer_type_]
+        for field in node_data.values()
+        if isinstance(field, ModelField)
+    })
+    annotations.update({
+        field_name: field if not annotate_all_optional else Optional[field]
+        for field_name, field in node_data.items()
+        if not isinstance(field, ModelField)
+    })
+    optdict = {'__annotations__': annotations}
+    return type('DynamicModel', (BaseModel,), optdict)
+
+
+def model_map(
+    model: BaseModel,
+    func: Callable[[BaseModel, ModelField], Optional[Any]],
+    node_factory: Callable[[Any, bool], Optional[Any]] = lambda data, _: data,
+    annotate_all_optional: bool = False
+):
+    output = {}
+    fields: List[Union[ModelField, BaseModel]] = model.__fields__.values()
+    for field in fields:
+        field = func(model, field)
+        if field is None:
+            continue
+        if issubclass(field.type_, BaseModel):
+            output[field.name] = model_map(
+                field.type_,
+                func,
+                node_factory,
+                annotate_all_optional
+            )
+        else:
+            output[field.name] = field
+    return node_factory(output, annotate_all_optional)
