@@ -13,6 +13,8 @@ def test_model_build():
         return field if not field.field_info.extra.get('private') else None
 
     public_model = model_map(Player, field_filtering, dynamic_model_node_factory)
+    assert 'id' in public_model.__fields__
+    assert 'comment' not in public_model.__fields__
     input_data = {
         'id': ObjectId(),
         'name': 'billy',
@@ -20,5 +22,6 @@ def test_model_build():
         'position': {'x': 0.0, 'y': 0.0, 'z': 0.0},
         'hp': {'left': 42, 'max': 100},
     }
-    instance = public_model(**input_data, ignoreme=True)
-    assert instance.dict() == input_data
+    instance = public_model(**input_data, ignoreme=True, comment="Hide me !")
+    output = instance.dict()
+    assert output == input_data

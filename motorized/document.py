@@ -1,5 +1,5 @@
 from inspect import isclass
-from typing import Optional, Union, Any, Dict, Type, List, Generator, Literal
+from typing import Optional, Union, Any, Dict, Type, List, Generator, Literal, Tuple
 from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
@@ -248,12 +248,28 @@ class Document(BaseModel, metaclass=DocumentMeta):
         })
 
     @classmethod
-    def get_updater_model(cls) -> Type[BaseModel]:
+    def get_updater_model(
+        cls,
+        exclude: Optional[List[Tuple[BaseModel, str]]] = None
+    ) -> Type[BaseModel]:
         """This class factory function create a new BaseModel from this model
         with all the fields that are not marked as `read_only`, all the fields
         are optional in the generated model
         """
-        def field_filtering(_, field: ModelField) -> Optional[ModelField]:
+        def is_excluded(model: BaseModel, field: ModelField) -> bool:
+            if not exclude:
+                return False
+            for exclude_model, exclude_field_name in exclude.items():
+                if model == exclude_model:
+                    if exclude_field_name is None:
+                        return True
+                    if exclude_field_name == field.field_info.name:
+                        return True
+            return False
+
+        def field_filtering(model: BaseModel, field: ModelField) -> Optional[ModelField]:
+            if is_excluded(model, field):
+                return None
             if field.field_info.extra.get('read_only'):
                 return None
             if field.name in cls.Mongo.local_fields:

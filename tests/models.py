@@ -35,3 +35,4 @@ class Player(Document):
     position: Position = Position()
     golds: int = Field(read_only=True, default=0)
     hp: PlayerStat = Field(PlayerStat(left=10, max=10), read_only=True)
+    comments: Optional[str] = Field(private=True)
