@@ -250,20 +250,25 @@ class Document(BaseModel, metaclass=DocumentMeta):
     @classmethod
     def get_updater_model(
         cls,
-        exclude: Optional[List[Tuple[BaseModel, str]]] = None
+        exclude: Optional[List[Tuple[BaseModel, Optional[List[str]]]]] = None
     ) -> Type[BaseModel]:
         """This class factory function create a new BaseModel from this model
         with all the fields that are not marked as `read_only`, all the fields
         are optional in the generated model
+
+        exemple:
+        ```python
+        updater = User.get_updater_model(exclude=[(User, ['password'])])
+        ```
         """
         def is_excluded(model: BaseModel, field: ModelField) -> bool:
             if not exclude:
                 return False
-            for exclude_model, exclude_field_name in exclude.items():
+            for exclude_model, exclude_field_names in exclude.items():
                 if model == exclude_model:
-                    if exclude_field_name is None:
+                    if exclude_field_names is None:
                         return True
-                    if exclude_field_name == field.field_info.name:
+                    if field.field_info.name in exclude_field_names:
                         return True
             return False
 
