@@ -1,5 +1,6 @@
 from motorized import Document, Field
 from typing import List, Optional
+from datetime import datetime
 
 
 class Animal(Document):
@@ -9,3 +10,4 @@ class Animal(Document):
     tags: Optional[List[str]] = None
     # this will not be exposed trought the api since the field is private
     internal_comment: Optional[str] = Field(default=None, private=True)
+    created: datetime = Field(default_factory=datetime.utcnow, read_only=True)
