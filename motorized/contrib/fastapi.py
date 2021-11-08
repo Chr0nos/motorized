@@ -54,15 +54,6 @@ class RestApiView:
     router: APIRouter
     orderings: List[str] = None
 
-    actions = [
-        ('create', '', 'POST', status.HTTP_201_CREATED),
-        ('list', '', 'GET', status.HTTP_200_OK),
-        ('retrieve', '/{id}', 'GET', status.HTTP_200_OK),
-        ('delete', '/{id}', 'DELETE', status.HTTP_204_NO_CONTENT),
-        ('patch', '/{id}', 'PATCH', status.HTTP_200_OK),
-        ('put', '/{id}', 'PATCH', status.HTTP_200_OK),
-    ]
-
     def __init__(self, router: APIRouter):
         if not hasattr(self, 'queryset'):
             raise ValueError('You MUST define a queryset attribute for views')
@@ -99,13 +90,6 @@ class RestApiView:
     def register(self) -> None:
         for method_name, method in self.get_actions_methods():
             params = method._router_params
-            # register the new action in the model actions.
-            self.actions.append((
-                method_name,
-                params['path'],
-                params['methods'][0],
-                params['status_code'])
-            )
 
             # resolve the response model to use.
             try:
