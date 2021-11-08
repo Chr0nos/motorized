@@ -7,7 +7,9 @@ from pydantic import BaseModel
 from pydantic.types import NonNegativeInt
 from motorized import QuerySet, Document
 from motorized.types import InputObjectId
-from typing import Type, Literal, Any, List, Optional
+from typing import (
+    Type, Literal, Any, List, Optional, Tuple, Callable, Generator
+)
 
 
 Action = Literal["create", "list", "delete", "patch", "put", "retrive"]
@@ -18,7 +20,8 @@ def action(
     path: str,
     method: Method = 'GET',
     status_code: int = status.HTTP_200_OK,
-    many=False
+    many=False,
+    priority=0
 ):
     """Register the given function to the availables actions for this view
 
@@ -30,6 +33,7 @@ def action(
     def decorator(func):
         func._is_action = True
         func._many = many
+        func._priority = priority
         # thoses parameters will be passed directly to the APIRouter
         func._router_params = {
             'path': path,
@@ -45,8 +49,10 @@ def action(
 
 class RestApiView:
     queryset: QuerySet
-    response_model: BaseModel
+    # will be used in last resort when resolving return type of an action.
+    default_response_model: BaseModel = None
     router: APIRouter
+    orderings: List[str] = None
 
     actions = [
         ('create', '', 'POST', status.HTTP_201_CREATED),
@@ -58,38 +64,40 @@ class RestApiView:
     ]
 
     def __init__(self, router: APIRouter):
+        if not hasattr(self, 'queryset'):
+            raise ValueError('You MUST define a queryset attribute for views')
         self.router = router
+        # populate public ordering if not set.
+        if self.orderings is None:
+            self.orderings = self.model.get_public_ordering_fields()
+
+        # by default the response model is a model who include all fields except
+        # the private ones.
+        if not self.default_response_model:
+            self.default_response_model = self.model.get_reader_model()
+        self._patch_annotations()
 
     @property
     def model(self) -> Type[Document]:
         return self.queryset.model
 
+    def get_actions_methods(self) -> List[Tuple[str, Callable]]:
+        actions_tuples = list([
+            (method_name, getattr(self, method_name))
+            for method_name in dir(self)
+            if self.is_action(method_name)
+        ])
+        actions_tuples.sort(key=lambda item: item[1]._priority, reverse=True)
+        return actions_tuples
+
+    def is_action(self, method_name: str) -> bool:
+        try:
+            return getattr(self, method_name)._is_action is True
+        except AttributeError:
+            return False
+
     def register(self) -> None:
-        self.register_actions_methods()
-        for action, path, method, status_code in self.actions:
-            if not self.is_implemented(action):
-                continue
-            self.router.add_api_route(
-                path=path,
-                endpoint=getattr(self, action),
-                response_model=self.get_response_model(action),
-                methods=[method],
-                status_code=status_code,
-            )
-
-    @property
-    def actions_methods(self):
-        for attribute in dir(self):
-            method = getattr(self, attribute)
-            try:
-                if not method._is_action:
-                    continue
-            except AttributeError:
-                continue
-            yield (attribute, method)
-
-    def register_actions_methods(self) -> None:
-        for method_name, method in self.actions_methods:
+        for method_name, method in self.get_actions_methods():
             params = method._router_params
             # register the new action in the model actions.
             self.actions.append((
@@ -117,32 +125,22 @@ class RestApiView:
         """Returns response model for the given action,
         you can override this method if you create new actions or if you want
         to customise the response model (ex: hide fields to user)
+
+        note the prefered way is declaring the annotaion for return of the
+        function that you are implementing.
         """
         try:
             return getattr(self, action).__annotations__['return']
         except KeyError:
-            if action == 'list':
-                return List[self.response_model]
             if action == 'delete':
                 return None
-            return self.response_model
+            return self.default_response_model
 
     def is_implemented(self, action: Action) -> bool:
         try:
             return callable(getattr(self, action))
         except AttributeError:
             return False
-
-
-class GenericApiView(RestApiView):
-    response_model = None
-
-    def __init__(self, router: APIRouter):
-        super().__init__(router)
-        if not self.response_model:
-            self.response_model = self.model.get_reader_model()
-        self.orderings = self.model.get_public_ordering_fields()
-        self._patch_annotations()
 
     def _patch_annotations(self):
         self.list.__annotations__.update({
@@ -151,13 +149,19 @@ class GenericApiView(RestApiView):
         updater = self.model.get_updater_model()
         # set the `payload` parameter type
         for action in ('create', 'patch'):
+            if not hasattr(self, action):
+                continue
             annotations = getattr(self, action).__annotations__
             annotations.setdefault('payload', updater)
 
+
+class GenericApiView(RestApiView):
+    @action('', 'POST', status.HTTP_201_CREATED)
     async def create(self, payload):
         instance = self.model(**payload.dict())
         return await instance.commit()
 
+    @action('', 'GET', many=True)
     async def list(
         self,
         order_by = Query(None),
@@ -166,15 +170,18 @@ class GenericApiView(RestApiView):
     ):
         return await self.queryset.order_by(order_by).skip(skip).limit(limit).all()
 
+    @action('/{id}', 'GET', priority=-1)
     async def retrieve(self, id: InputObjectId):
         try:
             return await self.queryset.get(_id=id)
         except self.model.DocumentNotFound:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
+    @action('/{id}', 'DELETE', priority=-1)
     async def delete(self, id: InputObjectId):
         await self.queryset.filter(_id=id).delete()
 
+    @action('/{id}', 'PATCH', priority=-1)
     async def patch(self, id: InputObjectId, payload):
         try:
             instance = await self.queryset.get(_id=id)
