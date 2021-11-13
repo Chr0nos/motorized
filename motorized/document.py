@@ -84,6 +84,10 @@ class DocumentMeta(ModelMetaclass):
 class DocumentBasis(BaseModel):
     """Represent the very bassis of Document and EmbeddedDocument
     """
+    class Config:
+        json_encoders = {ObjectId: str}
+        validate_assignment = True
+
     def update(self, input_data: Dict) -> "Document":
         """Update the current instance with the given `input_data` after
         validation return the object itself (without saving it in the database)
@@ -116,10 +120,6 @@ class EmbeddedDocument(DocumentBasis):
 class Document(DocumentBasis, metaclass=DocumentMeta):
     objects: QuerySet
     id: Optional[PydanticObjectId] = Field(alias='_id', read_only=True)
-
-    class Config:
-        json_encoders = {ObjectId: str}
-        validate_assignment = True
 
     class Mongo:
         manager_class = QuerySet
