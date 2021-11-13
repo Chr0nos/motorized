@@ -1,5 +1,6 @@
 from inspect import isclass
 from typing import Optional, Union, Any, Dict, Type, List, Generator, Literal, Tuple
+import attr
 from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
@@ -80,7 +81,39 @@ class DocumentMeta(ModelMetaclass):
                 setattr(instance.Mongo, attribute_name, default_value)
 
 
-class Document(BaseModel, metaclass=DocumentMeta):
+class DocumentBasis(BaseModel):
+    """Represent the very bassis of Document and EmbeddedDocument
+    """
+    def update(self, input_data: Dict) -> "Document":
+        """Update the current instance with the given `input_data` after
+        validation return the object itself (without saving it in the database)
+        """
+        validate_model(self, input_data)
+        allow_extra: bool = getattr(self.Config, 'extra', 'ignore') == 'allow'
+
+        # load the fields into the current instance
+        for field, value in input_data.items():
+            if allow_extra or hasattr(self, field):
+                setattr(self, field, value)
+        return self
+
+    def deep_update(self, input_data: Dict, **kwargs) -> "Document":
+        return deep_update_model(self, input_data, **kwargs)
+
+    def __setattr__(self, attribute_name, value: Any) -> None:
+        if attribute_name.startswith('_'):
+            object().setattr(attribute_name, value)
+
+        if isinstance(value, DocumentBasis):
+            value.__parent = self
+        super().__setattr__(attribute_name, value)
+
+
+class EmbeddedDocument(DocumentBasis):
+    pass
+
+
+class Document(DocumentBasis, metaclass=DocumentMeta):
     objects: QuerySet
     id: Optional[PydanticObjectId] = Field(alias='_id', read_only=True)
 
@@ -195,22 +228,6 @@ class Document(BaseModel, metaclass=DocumentMeta):
         model_data = await self.objects.filter(self.get_query()).find_one()
         model_data.pop('_id')
         return self.update(model_data)
-
-    def update(self, input_data: Dict) -> "Document":
-        """Update the current instance with the given `input_data` after
-        validation return the object itself (without saving it in the database)
-        """
-        validate_model(self, input_data)
-        allow_extra: bool = getattr(self.Config, 'extra', 'ignore') == 'allow'
-
-        # load the fields into the current instance
-        for field, value in input_data.items():
-            if allow_extra or hasattr(self, field):
-                setattr(self, field, value)
-        return self
-
-    def deep_update(self, input_data: Dict, **kwargs) -> "Document":
-        return deep_update_model(self, input_data, **kwargs)
 
     def __repr__(self):
         def get_field_entry(field: Field) -> str:

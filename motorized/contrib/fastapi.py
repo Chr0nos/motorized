@@ -150,7 +150,7 @@ class GenericApiView(RestApiView):
         self,
         order_by = Query(None),
         skip: Optional[NonNegativeInt] = Query(None),
-        limit: Optional[NonNegativeInt] = Query(10, maximum=50)
+        limit: Optional[NonNegativeInt] = Query(10, minimum=1, maximum=50)
     ):
         return await self.queryset.order_by(order_by).skip(skip).limit(limit).all()
 

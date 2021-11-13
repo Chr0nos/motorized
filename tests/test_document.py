@@ -5,9 +5,10 @@ from pydantic import BaseModel
 
 from tests.models import Named
 from tests.utils import require_db
+from typing import List
 
 from motorized.exceptions import DocumentNotSavedError
-from motorized import Document, Field
+from motorized import Document, Field, EmbeddedDocument
 
 
 @pytest.mark.asyncio
@@ -75,3 +76,26 @@ def test_document_reader_with_contraints():
     # print(Animal.__fields__)
     # print(dir(Animal))
     reader = Animal.get_reader_model()
+
+
+def test_document_update_with_nested():
+    class Chapter(EmbeddedDocument):
+        name: str
+        pages_count: int
+
+    class Book(Document):
+        name: str
+        chapters: List[Chapter] = []
+
+    x = Book(name='test')
+    assert isinstance(x.chapters, list)
+    x.chapters.append(Chapter(name='first', pages_count=0))
+
+    x.update({'chapters': [{'name': 'again', 'pages_count': 42}]})
+    assert x.chapters[0].pages_count == 42
+
+    x.chapters[0].update({'name': 'yay'})
+    assert x.chapters[0].name == 'yay'
+    assert x.chapters[0].pages_count == 42
+    assert callable(x.chapters[0].update)
+    assert callable(x.chapters[0].deep_update)
