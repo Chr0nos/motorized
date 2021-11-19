@@ -194,7 +194,11 @@ class QuerySet:
 
     async def find_one(self, **kwargs) -> Dict:
         kwargs.setdefault('session', self._session)
-        return await self.collection.find_one(self._query.query, **kwargs)
+        return await self.collection.find_one(
+            filter=self._query.query,
+            sort=self._sort,
+            **kwargs
+        )
 
     async def get(self, **kwargs) -> "Document":  # noqa: F821
         instance = self.filter(**kwargs)

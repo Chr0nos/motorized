@@ -99,3 +99,6 @@ def test_document_update_with_nested():
     assert x.chapters[0].pages_count == 42
     assert callable(x.chapters[0].update)
     assert callable(x.chapters[0].deep_update)
+
+    x.chapters[0].update({'name': 'changed'})
+    assert x.chapters[0].name == 'changed'
