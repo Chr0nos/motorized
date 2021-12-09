@@ -249,3 +249,15 @@ async def test_queryset_aggregation_pagination():
 
     sum_extra = Named.objects.order_by(['name']).skip(3).limit(1).sum('extra')
     assert await sum_extra == 1
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_queryset_rename_field():
+    book = await Book.objects.create(name="test", pages=42, volume=1)
+    # ofc here we can't reload the book anymore since the field has been
+    # renamed, the point is to try to rename a field into an other in the optic
+    # of a migration process.
+    await Book.objects.rename({"name": "title"})
+    assert await Book.objects.filter(title="test").exists()
+    assert not await Book.objects.filter(name="test").exists()

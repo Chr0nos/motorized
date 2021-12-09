@@ -389,3 +389,11 @@ class QuerySet:
             {'$unset': fields_dict},
             session=self._session
         )
+
+    async def rename(self, fields: Dict[str, str]) -> int:
+        """Renames fields from key to values.
+        """
+        return (await self.collection.update_many(
+            self._query.query,
+            {'$rename': fields}
+        )).modified_count
