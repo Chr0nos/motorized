@@ -156,20 +156,6 @@ As you can see, you can also define `class Mongo` inside the document to specify
 
 Any field or types has just to be pydantic capable definitions
 
-### Reserved attributes names
-In `Document` the following attributes names are reserved by motorized
-- _aliased_fields
-- _create_in_db
-- _transform
-- _update_in_db
-- commit
-- delete
-- fetch
-- get_query
-- reload
-- save
-- update
-- to_mongo
 
 ### Restriction
 There is a technical restriction to be able to use ANY `Document`: having a `_id` field in the database, this is the only proper way that the ODM has to clearly identity a document without risking collisions.
@@ -205,6 +191,7 @@ The call is perform just after the fetch from the database
 
 #### Update
 This method allow you to update the model with a given dictionary, the dictionary has to pass throught the validation process of pydantic, the function update and return the instance itself.
+
 ```python
 class User(Document):
     name: str
@@ -454,3 +441,46 @@ async def update_book(id: InputObjectId, update: BookInput):
 async def delete_book(id: InputObjectId):
     await Book.objects.filter(_id=id).delete()
 ```
+
+## Rest API
+assuming you already have the boilerplate to connect to db and setup the `app` for FastAPI you can also use the following implementation:
+```python
+from fastapi.routing import APIRouter
+from motorized import Field, Document
+from motorized.contrib.fastapi import GenericApiView, action
+
+router = APIRouter(prefix='/books')
+
+
+class Book(Document):
+    name : str
+    pages: int
+    volume: Optional[int]
+    # here the `private` will prevent the field to be readable from the user
+    # using the API, the read_only prevent user to edit it but not the code
+    private_notes: Optional[str] = Field(private=True, read_only=True)
+
+
+class BookViewSet(GenericApiView):
+    queryset = Book.objects
+
+    @action('/custom-endpoint')
+    async def custom(self):
+        return Book(name='Custom', pages=42, volume=1)
+
+
+view = BookViewSet(router)
+view.register()
+```
+
+This will provide following endpoints:
+- `GET` /books
+- `POST` /books
+- `GET` /books/id
+- `PATCH` /books/id
+- `DELETE` /books/id
+- `GET` /books/id/custom-endpoint
+
+all PATCH methods will accept partial payloads
+
+This little conveniant class for viewset can be used without the default method by using the `RestApiView` class from the `motorized.contrib.fastapi` module.
