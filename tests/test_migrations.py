@@ -28,3 +28,12 @@ async def test_pending(mock_discover, mock_import_module):
 
     assert await Migration.objects.pending(folder) == []
     assert await Migration.objects.filter(module_name='2021011200').exists()
+
+    migration = await Migration.objects.get(module_name='2021011200')
+    assert await migration.revert() == 30
+    fake_migration.revert.assert_awaited_once()
+
+    # since this migration as already been applied it should be possible to
+    # revert it anymore.
+    with pytest.raises(ValueError):
+        await migration.revert()

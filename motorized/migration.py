@@ -88,6 +88,9 @@ class Migration(Document):
         return modified_count
 
     async def revert(self) -> int:
+        if not self.applied:
+            logger.error(f"Cannot revert {self.module_name} since it wasent applied")
+            raise ValueError("Cannot revert this migration since it wasent applied.")
         migration_module = import_module(self.module_name)
         modified_count = await migration_module.revert()
         logger.info(f"Reverted {self.module_name} on {modified_count} rows.")
