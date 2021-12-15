@@ -112,6 +112,9 @@ class Migration(Document):
         return await super().save(*args, **kwargs)
 
     async def apply(self) -> int:
+        if self.applied:
+            logger.warning("{self.module_name} already applied.")
+            return 0
         migration_module = import_module(self.module_name)
         description = getattr(migration_module, 'description', None)
         if description is not None:
@@ -125,8 +128,8 @@ class Migration(Document):
 
     async def revert(self) -> int:
         if not self.applied:
-            logger.error(f"Cannot revert {self.module_name} since it wasent applied")
-            raise ValueError("Cannot revert this migration since it wasent applied.")
+            logger.warning(f"Cannot revert {self.module_name} since it wasent applied")
+            return 0
         migration_module = import_module(self.module_name)
         modified_count = await migration_module.revert()
         logger.info(f"Reverted {self.module_name} on {modified_count} rows.")

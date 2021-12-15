@@ -35,5 +35,4 @@ async def test_pending(mock_discover, mock_import_module):
 
     # since this migration as already been applied it should be possible to
     # revert it anymore.
-    with pytest.raises(ValueError):
-        await migration.revert()
+    assert await migration.revert() == 0
