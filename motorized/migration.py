@@ -80,8 +80,10 @@ class Migration(Document):
         description = getattr(migration_module, 'description', None)
         if description is not None:
             description = ': ' + description
+        else:
+            description = '.'
         modified_count = await migration_module.apply()
-        logger.info(f"Applied {self.module_name} on {modified_count} rows.")
+        logger.info(f"Applied {self.module_name} on {modified_count} rows{description}")
         await self.save()
         return modified_count
 
