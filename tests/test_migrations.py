@@ -1,8 +1,10 @@
 from motorized.migration import Migration
 
 import pytest
-from mock import patch, MagicMock, AsyncMock
+from bson import ObjectId
+from mock import patch, MagicMock, AsyncMock, Mock
 from tests.utils import require_db
+from datetime import datetime
 
 
 @pytest.mark.asyncio
@@ -36,3 +38,13 @@ async def test_pending(mock_discover, mock_import_module):
     # since this migration as already been applied it should be possible to
     # revert it anymore.
     assert await migration.revert() == 0
+
+
+@pytest.mark.asyncio
+@patch("motorized.migration.import_module")
+async def test_migration_without_revert(mock_import_module):
+    mock_import_module.return_value = object()
+    migration = Migration(module_name='test', _id=ObjectId(), applied_at=datetime.utcnow())
+    assert migration.is_applied
+    with pytest.raises(ValueError):
+        await migration.revert()

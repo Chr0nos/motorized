@@ -104,7 +104,7 @@ class Migration(Document):
         manager_class = MigrationManager
 
     @property
-    def applied(self) -> bool:
+    def is_applied(self) -> bool:
         return self.id is not None and self.applied_at is not None
 
     async def save(self, *args, **kwargs):
@@ -112,7 +112,7 @@ class Migration(Document):
         return await super().save(*args, **kwargs)
 
     async def apply(self) -> int:
-        if self.applied:
+        if self.is_applied:
             logger.warning("{self.module_name} already applied.")
             return 0
         migration_module = import_module(self.module_name)
@@ -127,14 +127,19 @@ class Migration(Document):
         return modified_count
 
     async def revert(self) -> int:
-        if not self.applied:
+        if not self.is_applied:
             logger.warning(f"Cannot revert {self.module_name} since it wasent applied")
             return 0
         migration_module = import_module(self.module_name)
-        modified_count = await migration_module.revert()
-        logger.info(f"Reverted {self.module_name} on {modified_count} rows.")
-        await self.delete()
-        return modified_count
+        try:
+            modified_count = await migration_module.revert()
+            print('revert function ok', modified_count)
+            logger.info(f"Reverted {self.module_name} on {modified_count} rows.")
+            await self.delete()
+            return modified_count
+        except AttributeError as error:
+            logger.error("Migration {self.module_name} cannot be undone.")
+            raise ValueError(f"{self} cannot be undone.") from error
 
     def __eq__(self, other: "Migration") -> bool:
         return self.module_name == other.module_name
