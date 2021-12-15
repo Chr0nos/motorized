@@ -103,6 +103,9 @@ class Migration(Document):
     class Mongo:
         manager_class = MigrationManager
 
+    def __str__(self):
+        return self.module_name
+
     @property
     def is_applied(self) -> bool:
         return self.id is not None and self.applied_at is not None
@@ -116,6 +119,9 @@ class Migration(Document):
             logger.warning("{self.module_name} already applied.")
             return 0
         migration_module = import_module(self.module_name)
+        if not hasattr(migration_module, 'apply'):
+            logger.error(f"{self} is malformed: no `apply` method found.")
+            raise ValueError(self)
         description = getattr(migration_module, 'description', None)
         if description is not None:
             description = ': ' + description
