@@ -115,18 +115,26 @@ class Migration(Document):
         return await super().save(*args, **kwargs)
 
     async def apply(self) -> int:
+        """Apply the migration to the database and save the instance into
+        the collection.
+        if the migration has already been applied then 0 will be returned
+        and a warning displayed
+        return the amount of modified rows in the collection
+        """
         if self.is_applied:
             logger.warning("{self.module_name} already applied.")
             return 0
+
         migration_module = import_module(self.module_name)
         if not hasattr(migration_module, 'apply'):
             logger.error(f"{self} is malformed: no `apply` method found.")
             raise ValueError(self)
+
+        # description formating if available
         description = getattr(migration_module, 'description', None)
-        if description is not None:
-            description = ': ' + description
-        else:
-            description = '.'
+        description: str = ': ' + description if description else '.'
+
+        # perform the actual migration
         modified_count = await migration_module.apply()
         logger.info(f"Applied {self.module_name} on {modified_count} rows{description}")
         await self.save()
@@ -152,6 +160,9 @@ class Migration(Document):
 
 
 def value_from_dot_notation(data: Dict[str, Any], path: str) -> Any:
+    """Take a dictionary `data` and get keys by the `path` parameter,
+    this path parameter will use the dots (.) as delimiter.
+    """
     for key in path.split('.'):
         data = data[key]
     return data
@@ -163,6 +174,12 @@ async def alter_field(
     caster: Callable[[Any], Any],
     filter: Optional[Dict[str, Any]] = None,
 ) -> int:
+    """Alter the `field_name` on `model` using the `caster` function,
+    the function will receive the value to convert as parameter.
+
+    the alteration will be done row by row instead of a collection.update_many
+    to allow custom conversions (cast/setting default values etc).
+    """
     if filter is None:
         filter = {}
     projection = {field_name: True, '_id': True}
