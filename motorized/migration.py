@@ -6,6 +6,42 @@ from importlib import import_module
 from motorized import Document, QuerySet
 import logging
 
+"""
+# Migrations
+each migration is supposed be a file in a folder (of your choice),
+each file nameing should be: YYYYMMDDXX
+when:
+YYYY = year on 4 chars
+MM = month on 2 chars
+DD = day on 2 chars
+XX = migration of the day from 00 to 99 (on 2 chars)
+
+all migrations will be evaluated and applied in a lexical order.
+
+each migration should contain at last:
+- async apply function to perform the migration
+- async revert function to revert it if possible
+
+it's also a good practice to provide a `description` variable on the top scope
+of your migration module to let co-workers know what it is intended for.
+
+example migration of a file "2021021400.py":
+```python
+from motorized.migration import alter_field
+from my_models import User
+
+description = 'convert User.age from string to integer'
+
+
+async def apply() -> int:
+    return alter_field(User, 'age', lambda age: int(age)})
+
+
+async def revert() -> int:
+    return alter_field(User, 'age', lambda age: str(age))
+```
+"""
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
