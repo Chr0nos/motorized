@@ -188,7 +188,7 @@ async def alter_field(
     async for item in cursor:
         casted = await caster(value_from_dot_notation(item, field_name))
         await model.collection.update_one(
-            item['_id'],
+            {'_id': item['_id']},
             {'$set': {field_name: casted}}
         )
         modified_count += 1
