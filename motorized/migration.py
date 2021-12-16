@@ -111,7 +111,8 @@ class Migration(Document):
         return self.id is not None and self.applied_at is not None
 
     async def save(self, *args, **kwargs):
-        self.applied_at = datetime.utcnow()
+        if not self.applied_at:
+            self.applied_at = datetime.utcnow()
         return await super().save(*args, **kwargs)
 
     async def apply(self) -> int:
