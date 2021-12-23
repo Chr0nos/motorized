@@ -110,19 +110,29 @@ class Migration(Document):
     def is_applied(self) -> bool:
         return self.id is not None and self.applied_at is not None
 
+    @property
+    def path(self) -> str:
+        return self.module_name.replace('.', '/') + '.py'
+
+    @property
+    def exists(self) -> bool:
+        return os.path.exists(self.path)
+
     async def save(self, *args, **kwargs):
         if not self.applied_at:
             self.applied_at = datetime.utcnow()
         return await super().save(*args, **kwargs)
 
-    async def apply(self) -> int:
+    async def apply(self, force: bool = False) -> int:
         """Apply the migration to the database and save the instance into
         the collection.
+        `force` param allow you to force application of the migration even if
+        it was already applied.
         if the migration has already been applied then 0 will be returned
         and a warning displayed
         return the amount of modified rows in the collection
         """
-        if self.is_applied:
+        if self.is_applied and not force:
             logger.warning("{self.module_name} already applied.")
             return 0
 
