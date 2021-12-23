@@ -106,7 +106,7 @@ class DocumentBasis(BaseModel):
 
     def __setattr__(self, attribute_name, value: Any) -> None:
         if attribute_name.startswith('_'):
-            object().__setattr__(attribute_name, value)
+            object.__setattr__(self, attribute_name, value)
 
         if isinstance(value, DocumentBasis):
             value.__parent = self

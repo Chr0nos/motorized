@@ -102,3 +102,15 @@ def test_document_update_with_nested():
 
     x.chapters[0].update({'name': 'changed'})
     assert x.chapters[0].name == 'changed'
+
+
+def test_document_private_override():
+    class Test(Document):
+        name: str
+        _something: int
+
+    x = Test(name='test')
+    x._something = 42
+    assert x._something == 42
+    assert '_something' not in Test.get_reader_model().__fields__
+    assert 'name' in Test.get_reader_model().__fields__
