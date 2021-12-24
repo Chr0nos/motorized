@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from tests.models import Named
 from tests.utils import require_db
-from typing import List
+from typing import List, Optional
 
 from motorized.exceptions import DocumentNotSavedError
 from motorized import Document, Field, EmbeddedDocument
@@ -114,3 +114,30 @@ def test_document_private_override():
     assert x._something == 42
     assert '_something' not in Test.get_reader_model().__fields__
     assert 'name' in Test.get_reader_model().__fields__
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_embedded_document_privates_attributes():
+    from motorized.document import NoPrivateAttributes
+
+    class Chapter(NoPrivateAttributes, EmbeddedDocument):
+        name: str
+        _parent: Optional["Book"] = None
+
+    class Book(Document):
+        title: str
+        chapters: List[Chapter]
+
+    Chapter.update_forward_refs()
+
+    x = Book(title='irrelevant', chapters=[Chapter(name='test')])
+    x.chapters[0]._parent = x
+    assert x.chapters[0]._parent is x
+
+    chapter_dict = x.chapters[0].dict()
+    assert isinstance(chapter_dict, dict)
+    assert '_parent' not in chapter_dict
+    assert 'name' in chapter_dict
+
+    assert x.dict()['chapters'][0] == chapter_dict

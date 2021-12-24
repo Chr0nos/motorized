@@ -371,6 +371,13 @@ class Car(Vehicule):
 
 here all the 3 classes are stored in the same collection but their default query will be populated by `filters` value, here we base the selection on the `kind` attribute
 
+### Inheritance
+The there is 3 clases:
+- DocumentBasis : used on all documents (also embeded)
+- Document : they are a root level document.
+- EmbeddedDocument: They are nested documents
+
+
 # FastAPI
 Since all the models are technicaly pydantics BaseModels, this mean the complete ODM works fine out of the box with fastapi and nothing prevent you to have something like:
 ```python

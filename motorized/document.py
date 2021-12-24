@@ -104,13 +104,32 @@ class DocumentBasis(BaseModel):
     def deep_update(self, input_data: Dict, **kwargs) -> "Document":
         return deep_update_model(self, input_data, **kwargs)
 
-    def __setattr__(self, attribute_name, value: Any) -> None:
-        if attribute_name.startswith('_'):
-            object.__setattr__(self, attribute_name, value)
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith('_'):
+            return object.__setattr__(self, name, value)
 
         if isinstance(value, DocumentBasis):
             value.__parent = self
-        super().__setattr__(attribute_name, value)
+        return super().__setattr__(name, value)
+
+
+class NoPrivateAttributes:
+    """Ommit any private attrinute from iterators and .dict method on this
+    document.
+    """
+    def __iter__(self) -> Generator[str, Any, None]:
+        for field_name, field_value in super().__iter__():
+            if field_name not in self.__fields__:
+                continue
+            yield field_name, field_value
+
+    def dict(self, **kwargs) -> Dict[str, Any]:
+        return dict({
+            field_name: field_value
+            if not isinstance(field_value, BaseModel)
+            else field_value.dict(**kwargs)
+            for field_name, field_value in self
+        })
 
 
 class EmbeddedDocument(DocumentBasis):
@@ -240,13 +259,13 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         ])
         return f'{self.__class__.__name__}({fields})'
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        # allow any private attribute to be passed
-        if name.startswith('_') or name in self.Mongo.local_fields:
-            return object.__setattr__(self, name, value)
+    # def __setattr__(self, name: str, value: Any) -> None:
+    #     # allow any private attribute to be passed
+    #     if name.startswith('_') or name in self.Mongo.local_fields:
+    #         return object.__setattr__(self, name, value)
 
-        # otherwise we let pydantic decide
-        return super().__setattr__(name, value)
+    #     # otherwise we let pydantic decide
+    #     return super().__setattr__(name, value)
 
     @classmethod
     def get_readonly_fields(cls):
