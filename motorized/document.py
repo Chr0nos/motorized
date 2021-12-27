@@ -114,9 +114,12 @@ class DocumentBasis(BaseModel):
 
 
 class NoPrivateAttributes:
-    """Ommit any private attrinute from iterators and .dict method on this
+    """Ommit any private arributes from iterators and .dict method on this
     document.
     """
+    class Config:
+        underscore_attrs_are_private = True
+
     def __iter__(self) -> Generator[str, Any, None]:
         for field_name, field_value in super().__iter__():
             if field_name not in self.__fields__:

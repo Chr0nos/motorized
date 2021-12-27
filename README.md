@@ -372,10 +372,13 @@ class Car(Vehicule):
 here all the 3 classes are stored in the same collection but their default query will be populated by `filters` value, here we base the selection on the `kind` attribute
 
 ### Inheritance
-The there is 3 clases:
+The there is main 3 classes:
 - DocumentBasis : used on all documents (also embeded)
 - Document : they are a root level document.
 - EmbeddedDocument: They are nested documents
+
+then we have a mixin `NoPrivateAttributes` wich is used to avoid saving private attributes in the database, private attributes startswith `_`.
+In all cases `pydantic` will not process private attributes.
 
 
 # FastAPI

@@ -141,3 +141,8 @@ async def test_embedded_document_privates_attributes():
     assert 'name' in chapter_dict
 
     assert x.dict()['chapters'][0] == chapter_dict
+
+    c = Chapter(name='test', _parent=40)
+    assert c._parent is None
+    c._parent = 42
+    assert c._parent == 42
