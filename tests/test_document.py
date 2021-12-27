@@ -146,3 +146,28 @@ async def test_embedded_document_privates_attributes():
     assert c._parent is None
     c._parent = 42
     assert c._parent == 42
+
+
+@pytest.mark.asyncio
+@require_db
+async def test_mark_parents():
+    from motorized.document import mark_parents
+
+    class Person(Document):
+        name: str
+        friends: Optional[List["Person"]]
+
+    Person.update_forward_refs()
+
+    tree = Person(
+        name='Bob',
+        friends=[
+            Person(name='A'),
+            Person(name='B')
+        ]
+    )
+    mark_parents(tree)
+
+    assert tree._parent is None
+    assert tree.friends[0]._parent is tree
+    assert tree.friends[1]._parent is tree

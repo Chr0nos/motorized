@@ -108,8 +108,6 @@ class DocumentBasis(BaseModel):
         if name.startswith('_'):
             return object.__setattr__(self, name, value)
 
-        if isinstance(value, DocumentBasis):
-            value.__parent = self
         return super().__setattr__(name, value)
 
 
@@ -118,6 +116,8 @@ class NoPrivateAttributes:
     document.
     """
     class Config:
+        json_encoders = {ObjectId: str}
+        validate_assignment = True
         underscore_attrs_are_private = True
 
     def __iter__(self) -> Generator[str, Any, None]:
@@ -361,3 +361,33 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         fields.extend([f'-{field_name}' for field_name in fields])
         fields.sort(key=lambda x: x if not x.startswith('-') else x[1:])
         return Literal[tuple(fields)]
+
+
+def mark_parents(
+    model: DocumentBasis,
+    parent: Optional[DocumentBasis] = None
+) -> None:
+    """Mark all nested items with a `_parent` attribute pointing to their
+    parent instance (for trees of DocumentBasis)
+
+    it is strongly recomemded to use this on classes with the
+    `NoPrivateAttributes` mixin to avoid ciruclar display when calling the
+    .dict method.
+    """
+    model._parent = parent
+    for field in model.__fields__.values():
+        field: ModelField = field
+        if not issubclass(field.type_, DocumentBasis):
+            continue
+
+        item = getattr(model, field.name)
+        if isinstance(item, DocumentBasis):
+            mark_parents(item, model)
+
+        elif isinstance(item, list):
+            for submodel in item:
+                mark_parents(submodel, model)
+
+        elif isinstance(item, dict):
+            for submodel in item.values():
+                mark_parents(submodel, model)
