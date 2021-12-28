@@ -2,7 +2,7 @@ from motorized.migration import Migration
 
 import pytest
 from bson import ObjectId
-from mock import patch, MagicMock, AsyncMock, Mock
+from mock import patch, MagicMock, AsyncMock
 from tests.utils import require_db
 from datetime import datetime
 

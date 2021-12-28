@@ -7,7 +7,6 @@ from bson import ObjectId
 from models import Player
 
 
-
 def test_model_build():
     def field_filtering(model: BaseModel, field: ModelField) -> Optional[ModelField]:
         return field if not field.field_info.extra.get('private') else None

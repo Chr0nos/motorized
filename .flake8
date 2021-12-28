@@ -1,0 +1,7 @@
+[flake8]
+per-file-ignores =
+    # imported but unused
+    __init__.py: F401
+exclude = .git,__pycache__,build,dist
+max-complexity = 13
+max-line-length = 96

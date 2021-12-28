@@ -16,7 +16,9 @@ class Named(Document):
     def __str__(self):
         return self.name
 
+
 # - Player nested models
+
 
 class Position(BaseModel):
     x: float = 0.0

@@ -123,7 +123,7 @@ async def test_embedded_document_privates_attributes():
 
     class Chapter(PrivatesAttrsMixin, EmbeddedDocument):
         name: str
-        _parent: Optional["Book"] = None
+        _parent: Optional["Book"] = None  # noqa: F821
 
     class Book(Document):
         title: str
@@ -155,7 +155,7 @@ async def test_mark_parents():
 
     class Person(Document):
         name: str
-        friends: Optional[List["Person"]]
+        friends: Optional[List["Person"]]  # noqa: F821
 
     Person.update_forward_refs()
 

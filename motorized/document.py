@@ -196,7 +196,9 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
 
         return saving_data
 
-    async def save(self, force_insert: bool = False
+    async def save(
+        self,
+        force_insert: bool = False
     ) -> Union[InsertOneResult, UpdateResult]:
         data = await self.to_mongo()
         document_id = data.pop('_id', None)

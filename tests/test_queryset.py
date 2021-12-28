@@ -1,6 +1,6 @@
 from motorized.exceptions import DocumentNotSavedError
 import pytest
-from motorized import Document, Q, connection
+from motorized import Document, Q
 from pymongo.results import UpdateResult
 from tests.utils import require_db
 from tests.models import Book, Named
@@ -254,7 +254,7 @@ async def test_queryset_aggregation_pagination():
 @pytest.mark.asyncio
 @require_db
 async def test_queryset_rename_field():
-    book = await Book.objects.create(name="test", pages=42, volume=1)
+    await Book.objects.create(name="test", pages=42, volume=1)
     # ofc here we can't reload the book anymore since the field has been
     # renamed, the point is to try to rename a field into an other in the optic
     # of a migration process.
