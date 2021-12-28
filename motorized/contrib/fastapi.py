@@ -140,12 +140,9 @@ class RestApiView:
             annotations.setdefault('payload', updater)
 
 
-class GenericApiView(RestApiView):
-    @action('', 'POST', status.HTTP_201_CREATED)
-    async def create(self, payload):
-        instance = self.model(**payload.dict())
-        return await instance.commit()
-
+class ReadOnlyApiViewSet(RestApiView):
+    """Only allow get methods on /resource and /resource/id
+    """
     @action('', 'GET', many=True)
     async def list(
         self,
@@ -162,6 +159,13 @@ class GenericApiView(RestApiView):
             return await self.queryset.get(_id=id)
         except self.model.DocumentNotFound:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+class GenericApiView(ReadOnlyApiViewSet):
+    @action('', 'POST', status.HTTP_201_CREATED)
+    async def create(self, payload):
+        instance = self.model(**payload.dict())
+        return await instance.commit()
 
     @action('/{id}', 'DELETE', priority=-1)
     async def delete(self, id: InputObjectId):
