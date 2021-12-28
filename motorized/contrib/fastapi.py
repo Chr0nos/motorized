@@ -8,7 +8,7 @@ from pydantic.types import NonNegativeInt
 from motorized import QuerySet, Document
 from motorized.types import InputObjectId
 from typing import (
-    Type, Literal, Any, List, Optional, Tuple, Callable, Generator
+    Type, Literal, List, Optional, Tuple, Callable
 )
 
 
@@ -40,6 +40,7 @@ def action(
             'methods': [method],
             'status_code': status_code,
         }
+
         @wraps(func)
         async def wrapper(*args, **kwargs):
             return await func(*args, **kwargs)
@@ -62,8 +63,8 @@ class RestApiView:
         if self.orderings is None:
             self.orderings = self.model.get_public_ordering_fields()
 
-        # by default the response model is a model who include all fields except
-        # the private ones.
+        # by default the response model is a model who include all fields
+        # except the private ones.
         if not self.default_response_model:
             self.default_response_model = self.model.get_reader_model()
         self._patch_annotations()
@@ -152,7 +153,8 @@ class GenericApiView(RestApiView):
         skip: Optional[NonNegativeInt] = Query(None),
         limit: Optional[NonNegativeInt] = Query(10, minimum=1, maximum=50)
     ):
-        return await self.queryset.order_by(order_by).skip(skip).limit(limit).all()
+        return await self.queryset.order_by(order_by).skip(skip) \
+            .limit(limit).all()
 
     @action('/{id}', 'GET', priority=-1)
     async def retrieve(self, id: InputObjectId):

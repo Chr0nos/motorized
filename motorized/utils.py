@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from pydantic.fields import ModelField
-from pydantic.types import ConstrainedInt
 from typing import (
     Any, MutableMapping, Callable, Dict, Optional, List, Type, Union
 )
@@ -79,10 +78,10 @@ def dict_deep_update(target: MutableMapping,
 
 
 def deep_update_model(
-        model: BaseModel,
-        data: Optional[Dict],
-        reset_with_none: bool = True
-    ) -> BaseModel:
+    model: BaseModel,
+    data: Optional[Dict],
+    reset_with_none: bool = True
+) -> BaseModel:
     """Update the given model with `data` paylaod (dict) merging childs
     to allow a partial update without loading default values for missing fields
 

@@ -377,7 +377,7 @@ The there is main 3 classes:
 - Document : they are a root level document.
 - EmbeddedDocument: They are nested documents
 
-then we have a mixin `NoPrivateAttributes` wich is used to avoid saving private attributes in the database, private attributes startswith `_`.
+then we have a mixin `PrivatesAttrsMixin` wich is used to avoid saving private attributes in the database, private attributes startswith `_`.
 In all cases `pydantic` will not process private attributes.
 
 

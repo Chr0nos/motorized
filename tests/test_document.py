@@ -75,7 +75,7 @@ def test_document_reader_with_contraints():
 
     # print(Animal.__fields__)
     # print(dir(Animal))
-    reader = Animal.get_reader_model()
+    Animal.get_reader_model()
 
 
 def test_document_update_with_nested():
@@ -119,9 +119,9 @@ def test_document_private_override():
 @pytest.mark.asyncio
 @require_db
 async def test_embedded_document_privates_attributes():
-    from motorized.document import NoPrivateAttributes
+    from motorized.document import PrivatesAttrsMixin
 
-    class Chapter(NoPrivateAttributes, EmbeddedDocument):
+    class Chapter(PrivatesAttrsMixin, EmbeddedDocument):
         name: str
         _parent: Optional["Book"] = None
 

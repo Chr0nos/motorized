@@ -1,6 +1,5 @@
 from inspect import isclass
 from typing import Optional, Union, Any, Dict, Type, List, Generator, Literal, Tuple
-import attr
 from pydantic import BaseModel, Field, validate_model
 from pydantic.fields import ModelField
 from pydantic.main import ModelMetaclass
@@ -111,7 +110,7 @@ class DocumentBasis(BaseModel):
         return super().__setattr__(name, value)
 
 
-class NoPrivateAttributes:
+class PrivatesAttrsMixin:
     """Ommit any private arributes from iterators and .dict method on this
     document.
     """
@@ -371,7 +370,7 @@ def mark_parents(
     parent instance (for trees of DocumentBasis)
 
     it is strongly recomemded to use this on classes with the
-    `NoPrivateAttributes` mixin to avoid ciruclar display when calling the
+    `PrivatesAttrsMixin` mixin to avoid ciruclar loop when calling the
     .dict method.
     """
     model._parent = parent

@@ -20,6 +20,7 @@ KEYWORDS = {
     'regex': Regex
 }
 
+
 def dict_path(path: List[str], value: Any = None) -> Dict:
     """Construct a dictionary from a path to hold the given value,
     example:
@@ -91,7 +92,12 @@ class Q:
         return x
 
     @classmethod
-    def apply_keywords(cls, raw_value: Any, path: List[str], invert: bool = False) -> Tuple[str, Any]:
+    def apply_keywords(
+        cls,
+        raw_value: Any,
+        path: List[str],
+        invert: bool = False
+    ) -> Tuple[str, Any]:
         if invert and path[-1] not in KEYWORDS:
             path.append('eq')
 
