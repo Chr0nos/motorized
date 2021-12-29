@@ -20,6 +20,7 @@ poetry add motorized
 There is basicaly 3 main classes that you will use with motorized:
 - Q
 - Document
+- EmbeddedDocument
 - QuerySet
 
 Each of them has it's own purpose, when the `Document` describe ONE row of your datas, the `Q` object is a conviniance class to write mongodb queries, it does not perform any verification it just format, then the `QuerySet` is the manager of a `Document` class.
@@ -27,6 +28,8 @@ Each of them has it's own purpose, when the `Document` describe ONE row of your 
 A `Q` object has absolutlely no relation with any `Document` or `QuerySet`, it's just the query object.
 The `QuerySet` known of wich model it will work and manipulate the collection and set of `Document`
 The `Document` validate input/output data and their insertion/update in the database.
+
+`EmbeddedDocument` are just `BaseModel` but with some extra conveniance methods, you can directly use a `BaseModel` if you don't need the ODM extra methods or behavious around the private attributes.
 
 ## Document
 A `Document` is a pydantic `BaseModel` with saving and queryset capabilities, this mean you can define a `class Config` inside it to tweek the validation like:
@@ -117,13 +120,12 @@ class Toon(Document):
 
 
 ### Embeded documents
-Having nested document could not be more easy, just put a `BaseModel` from pydantic in the `Document` declaration like bellow
+Having nested document could not be more easy, just put a `EmbeddedDocument` in the `Document` declaration like bellow
 ```python
-from pydantic.main import BaseModel
-from motorized.client import connection
-from motorized.document import Document
+from motorized.client import connection, EmbeddedDocument, Document
 
-class Position(BaseModel):
+
+class Position(EmbeddedDocument):
     x: float = 0.0
     y: float = 0.0
     z: float = 0.0
@@ -148,7 +150,7 @@ class User(Document):
     friends: Optional[List["User"]]
 
 
-# you will probably have to updated the forwared reference with:
+# you will have to updated the forwared reference with:
 User.update_forward_refs()
 ```
 
