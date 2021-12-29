@@ -31,6 +31,11 @@ The `Document` validate input/output data and their insertion/update in the data
 
 `EmbeddedDocument` are just `BaseModel` but with some extra conveniance methods, you can directly use a `BaseModel` if you don't need the ODM extra methods or behavious around the private attributes.
 
+## DocumentBasis
+This class is the base of `Document` and `EmbeddedDocument`, it allow to set private arguments (any attribute who start with `_`) even if not definied in the class itself, you can set them on the fly.
+
+Also this class provide an `update` method and a `deep_update` to update documents from a dictionary without having to create a new instance.
+
 ## Document
 A `Document` is a pydantic `BaseModel` with saving and queryset capabilities, this mean you can define a `class Config` inside it to tweek the validation like:
 
