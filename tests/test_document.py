@@ -5,10 +5,12 @@ from pydantic import BaseModel
 
 from tests.models import Named
 from tests.utils import require_db
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from motorized.exceptions import DocumentNotSavedError
-from motorized import Document, Field, EmbeddedDocument
+from motorized import (
+    Document, Field, EmbeddedDocument, mark_parents, PrivatesAttrsMixin
+)
 
 
 @pytest.mark.asyncio
@@ -151,8 +153,6 @@ async def test_embedded_document_privates_attributes():
 @pytest.mark.asyncio
 @require_db
 async def test_mark_parents():
-    from motorized.document import mark_parents
-
     class Person(Document):
         name: str
         friends: Optional[List["Person"]]  # noqa: F821
@@ -171,3 +171,24 @@ async def test_mark_parents():
     assert tree._parent is None
     assert tree.friends[0]._parent is tree
     assert tree.friends[1]._parent is tree
+
+
+@pytest.mark.asyncio
+async def test_mark_parent_bis():
+    class Item(PrivatesAttrsMixin, EmbeddedDocument):
+        name: str
+
+    class Player(PrivatesAttrsMixin, Document):
+        inventory: Dict[str, Item] = {}
+        friends: List["Player"] = []
+
+    Player.update_forward_refs()
+    toto = Player(
+        inventory={'gun': Item(name='gun')},
+        friends=[Player()]
+    )
+    mark_parents(toto)
+    assert toto._parent is None
+    assert toto.inventory['gun']._parent is toto
+    assert toto.friends[0]._parent is toto
+    assert isinstance(toto.dict(), dict)
