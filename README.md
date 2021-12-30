@@ -17,7 +17,7 @@ poetry add motorized
 ```
 
 ## Scementic organisation
-There is basicaly 3 main classes that you will use with motorized:
+There is basicaly 4 main classes that you will use with motorized:
 - Q
 - Document
 - EmbeddedDocument
