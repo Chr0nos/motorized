@@ -1,3 +1,4 @@
+
 from inspect import isclass
 from typing import Optional, Union, Any, Dict, Type, List, Generator, Literal, Tuple
 from pydantic import BaseModel, Field, validate_model
@@ -126,10 +127,17 @@ class PrivatesAttrsMixin:
             yield field_name, field_value
 
     def dict(self, **kwargs) -> Dict[str, Any]:
+        def resolve_field(value):
+            if isinstance(value, list):
+                return list([resolve_field(item) for item in value])
+            if isinstance(value, dict):
+                return dict({k: resolve_field(v) for k, v in value.items()})
+            if isinstance(value, BaseModel):
+                return value.dict(**kwargs)
+            return value
+
         return dict({
-            field_name: field_value
-            if not isinstance(field_value, BaseModel)
-            else field_value.dict(**kwargs)
+            field_name: resolve_field(field_value)
             for field_name, field_value in self
         })
 
