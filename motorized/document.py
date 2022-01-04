@@ -58,10 +58,12 @@ class DocumentMeta(ModelMetaclass):
             pass
 
         # forbid re-utilisation of the Mongo class between
-        # inheritance of the class
+        # inheritance of the class except for the `manager_class` parameter
+        previous_manager_class = None
         try:
             if instance.Mongo.class_name != name:
                 instance.Mongo = Mongo()
+                previous_manager_class = instance.Mongo.manager_class
         except AttributeError:
             pass
 
@@ -70,7 +72,7 @@ class DocumentMeta(ModelMetaclass):
 
         default_settings = {
             'collection': name.lower() + 's',
-            'manager_class': QuerySet,
+            'manager_class': previous_manager_class or QuerySet,
             'local_fields': [],
             'class_name': name,
             'filters': None,
