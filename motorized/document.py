@@ -388,7 +388,12 @@ def mark_parents(
     model._parent = parent
     for field in model.__fields__.values():
         field: ModelField = field
-        if not issubclass(field.type_, DocumentBasis):
+        try:
+            if not issubclass(field.type_, DocumentBasis):
+                continue
+        # in this error all the Literal will fall, we don't want to mark them
+        # so we just continue.
+        except TypeError:
             continue
 
         item = getattr(model, field.name)

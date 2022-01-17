@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from tests.models import Named
 from tests.utils import require_db
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Literal
 
 from motorized.exceptions import DocumentNotSavedError
 from motorized import (
@@ -181,11 +181,13 @@ async def test_mark_parent_bis():
     class Player(PrivatesAttrsMixin, Document):
         inventory: Dict[str, Item] = {}
         friends: List["Player"] = []
+        temper: Optional[Literal["calm", "nervous"]] = None
 
     Player.update_forward_refs()
     toto = Player(
         inventory={'gun': Item(name='gun')},
-        friends=[Player()]
+        friends=[Player()],
+        temper="calm"
     )
     mark_parents(toto)
     assert toto._parent is None
