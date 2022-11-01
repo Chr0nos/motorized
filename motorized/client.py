@@ -9,7 +9,6 @@ class Connection:
     database: AsyncIOMotorDatabase = None
 
     async def connect(self, *args, **kwargs):
-        print(f'Connection to {args} {kwargs}')
         self.client = AsyncIOMotorClient(*args, **kwargs)
         self.database = self.client.get_default_database()
 

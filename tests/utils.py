@@ -7,7 +7,7 @@ from motorized import connection
 @asynccontextmanager
 async def database(drop_before=True, drop_after=True):
     db_name = 'dontuse'
-    await connection.connect(f'mongodb://192.168.1.12:27017/{db_name}')
+    await connection.connect(f'mongodb://192.168.0.12:27017/{db_name}')
     if drop_before:
         await connection.client.drop_database(db_name)
     yield connection.database
