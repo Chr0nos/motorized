@@ -501,3 +501,49 @@ This will provide following endpoints:
 all PATCH methods will accept partial payloads
 
 This little conveniant class for viewset can be used without the default method by using the `RestApiView` class from the `motorized.contrib.fastapi` module.
+
+
+## Migrations
+it is possible to manage migrations for the database (field types changes)
+for this have a look into `examples/migrations`
+
+### Create a migation
+A migration file is a .py file that MUST have at last an `apply` function
+like:
+```python
+async def apply() -> int:
+    # the int is to return the number of afected items
+    return 0
+```
+
+This is the very minimal migrations
+you can also specify a `revert` method
+
+like:
+```python
+async def revert() -> int:
+    return 0
+```
+
+### Dependency
+A migration can depend on one or multiple others dependencies (meaning that they
+have to be applied before)
+to achive this in the dependency just add
+```python
+depends_on = ['module.dependency']
+```
+
+The migration command expect to find all the migration inside one folder.
+
+### Apply migrations
+```python
+from motorized.migrations import migrate
+
+
+async def main():
+    # connect to the database then
+    await migrate('examples/migrations')
+```
+
+The migrations will be applied in parallel as long as their dependencies are
+already solved.

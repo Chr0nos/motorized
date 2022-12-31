@@ -2,42 +2,8 @@ from motorized.migration import Migration
 
 import pytest
 from bson import ObjectId
-from mock import patch, MagicMock, AsyncMock
-from tests.utils import require_db
+from mock import patch
 from datetime import datetime
-
-
-@pytest.mark.asyncio
-@require_db
-@patch("motorized.migration.import_module")
-@patch("motorized.migration.MigrationManager.discover", return_value=["2021011200"])
-async def test_pending(mock_discover, mock_import_module):
-    fake_migration = MagicMock()
-    fake_migration.description = 'A test migration'
-    fake_migration.apply = AsyncMock(return_value=42)
-    fake_migration.revert = AsyncMock(return_value=30)
-
-    mock_import_module.return_value = fake_migration
-    folder = '/test/migrations'
-    pendings = await Migration.objects.pending(folder)
-    mock_discover.assert_called_once_with(folder)
-    assert pendings == [Migration(module_name='2021011200')]
-    assert pendings != [Migration(module_name='2021011201')]
-
-    modified_count = await Migration.objects.migrate(folder)
-    assert modified_count == 42
-    fake_migration.apply.assert_awaited_once()
-
-    assert await Migration.objects.pending(folder) == []
-    assert await Migration.objects.filter(module_name='2021011200').exists()
-
-    migration = await Migration.objects.get(module_name='2021011200')
-    assert await migration.revert() == 30
-    fake_migration.revert.assert_awaited_once()
-
-    # since this migration as already been applied it should be possible to
-    # revert it anymore.
-    assert await migration.revert() == 0
 
 
 @pytest.mark.asyncio
@@ -45,6 +11,6 @@ async def test_pending(mock_discover, mock_import_module):
 async def test_migration_without_revert(mock_import_module):
     mock_import_module.return_value = object()
     migration = Migration(module_name='test', _id=ObjectId(), applied_at=datetime.utcnow())
-    assert migration.is_applied
+    assert await migration.is_applied()
     with pytest.raises(ValueError):
         await migration.revert()

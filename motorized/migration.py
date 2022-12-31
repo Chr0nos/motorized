@@ -5,6 +5,9 @@ from datetime import datetime
 from importlib import import_module
 from motorized import Document, QuerySet
 import logging
+import asyncio
+from depsolve import walk
+
 
 """
 # Migrations
@@ -74,41 +77,26 @@ MongoType = Literal[
 ]
 
 
-class MigrationManager(QuerySet):
-    def discover(self, folder: str) -> List[str]:
-        return list(sorted([
-            os.path.basename(filename).replace('/', '.').replace('.py', '')
-            for filename in glob(folder + '/*.py')
-            if os.path.isfile(filename)
-        ]))
-
-    async def pending(self, folder: str) -> List["Migration"]:
-        return list([
-            self.model(module_name=module_name)
-            for module_name in self.discover(folder)
-            if not await self.filter(module_name=module_name).exists()
-        ])
-
-    async def migrate(self, folder: str) -> int:
-        modified_count = 0
-        for migration in await self.pending(folder):
-            modified_count += await migration.apply()
-        return modified_count
-
-
 class Migration(Document):
     module_name: str
     applied_at: Optional[datetime] = None
+    depends_on = []
 
     class Mongo:
-        manager_class = MigrationManager
+        local_fields = ('depends_on',)
+
+    @property
+    def name(self) -> str:
+        return self.module_name
 
     def __str__(self):
         return self.module_name
 
-    @property
-    def is_applied(self) -> bool:
-        return self.id is not None and self.applied_at is not None
+    async def is_applied(self) -> bool:
+        if self.id and self.applied_at:
+            return True
+        return await Migration.objects \
+            .filter(module_name=self.module_name).exists()
 
     @property
     def path(self) -> str:
@@ -132,8 +120,8 @@ class Migration(Document):
         and a warning displayed
         return the amount of modified rows in the collection
         """
-        if self.is_applied and not force:
-            logger.warning("{self.module_name} already applied.")
+        if await self.is_applied() and not force:
+            logger.warning(f"{self.module_name} already applied.")
             return 0
 
         migration_module = import_module(self.module_name)
@@ -152,7 +140,7 @@ class Migration(Document):
         return modified_count
 
     async def revert(self) -> int:
-        if not self.is_applied:
+        if not await self.is_applied():
             logger.warning(f"Cannot revert {self.module_name} since it wasent applied")
             return 0
         migration_module = import_module(self.module_name)
@@ -168,6 +156,18 @@ class Migration(Document):
 
     def __eq__(self, other: "Migration") -> bool:
         return self.module_name == other.module_name
+
+    @classmethod
+    def from_module(cls, module: str) -> "Migration":
+        migration_module = import_module(module)
+        if not hasattr(migration_module, 'apply'):
+            raise ValueError(f"Module {module} does not have a apply function")
+        migration = cls(
+            module_name=module,
+            depends_on=getattr(migration_module, 'depends_on', []),
+            applied_at=None
+        )
+        return migration
 
 
 def value_from_dot_notation(data: Dict[str, Any], path: str) -> Any:
@@ -204,3 +204,27 @@ async def alter_field(
         )
         modified_count += 1
     return modified_count
+
+
+async def list_migrations(folder: str) -> list[Migration]:
+    migrations = []
+    for item in glob(folder + '/*.py'):
+        if not os.path.isfile(item):
+            continue
+        module_name = (
+            item
+            .replace('/', '.')
+            .replace('.py', '')
+        )
+        try:
+            migrations.append(Migration.from_module(module_name))
+        except ValueError:
+            continue
+    return migrations
+
+
+async def migrate(folder: str) -> None:
+    migrations = await list_migrations(folder)
+    for migrations in walk(migrations):
+        tasks = list([migration.apply() for migration in migrations])
+        await asyncio.gather(*tasks)

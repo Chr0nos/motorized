@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "motorized"
-version = "0.4.8"
+version = "0.5.0"
 description = "Asyncio mongodb ODM based on pydantic"
 authors = ["Sebastien Nicolet <snicolet95@gmail.com>"]
 license = "MIT"
@@ -8,9 +8,10 @@ keywords = ["MongoDB", "Pydantic", "Asyncio", "ODM"]
 documentation = "https://github.com/Chr0nos/motorized/blob/master/README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 motor = "^2.5.1"
 pydantic = "^1.8.2"
+depsolve = "^0.1.1"
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.28.0"
