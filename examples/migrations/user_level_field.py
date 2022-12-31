@@ -23,4 +23,4 @@ async def revert() -> int:
     return await User.objects.collection.update_many(
         {},
         {'$unset': {'level': True}}
-    ).modified_count()
+    ).modified_count
