@@ -533,7 +533,7 @@ to achive this in the dependency just add
 depends_on = ['module.dependency']
 ```
 
-The migration command expect to find all the migration inside one folder.
+The migration command expect to find all the migration inside multiples folders (passed via args)
 
 ### Apply migrations
 ```python

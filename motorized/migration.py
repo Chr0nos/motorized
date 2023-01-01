@@ -223,8 +223,11 @@ async def list_migrations(folder: str) -> list[Migration]:
     return migrations
 
 
-async def migrate(folder: str) -> None:
-    migrations = await list_migrations(folder)
+async def migrate(*folders: str) -> None:
+    migrations = []
+    for folder in folders:
+        migrations.extend(await list_migrations(folder))
+
     for migrations in walk(migrations):
         tasks = list([migration.apply() for migration in migrations])
         await asyncio.gather(*tasks)
