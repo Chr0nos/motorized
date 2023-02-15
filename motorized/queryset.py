@@ -97,7 +97,7 @@ class QuerySet:
         collection_name: str = self._collection_name or self.model.Mongo.collection
         if self.database is not None:
             return getattr(self.database, collection_name)
-        if not connection.database:
+        if connection.database is None:
             raise NotConnectedException(
                 'You need to use connection.connect before using collection'
             )
