@@ -16,6 +16,17 @@ class Connection:
         self.client = None
         self.database = None
 
+    def set_database(self, name: str, **kwargs) -> None:
+        """Set the current database to use
+        after using the default database for authentication
+        then you set the product database with this method.
+        """
+        self.database = AsyncIOMotorDatabase(
+            client=self.client,
+            name=name,
+            **kwargs
+        )
+
 
 @asynccontextmanager
 async def client(
