@@ -143,7 +143,7 @@ def get_all_fields(
     for field_name, field in model.__fields__.items():
         if is_ignored and is_ignored(model, field):
             continue
-        if issubclass(field.type_, BaseModel):
+        if safe_issubclass(field.type_, BaseModel):
             fields[field_name] = get_all_fields(
                 model=field.type_,
                 is_ignored=is_ignored
@@ -195,7 +195,7 @@ def model_map(
         field = func(model, field)
         if field is None:
             continue
-        if issubclass(field.type_, BaseModel):
+        if safe_issubclass(field.type_, BaseModel):
             output[field.name] = model_map(
                 field.type_,
                 func,
