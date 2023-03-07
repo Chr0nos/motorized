@@ -537,7 +537,7 @@ The migration command expect to find all the migration inside multiples folders 
 
 ### Apply migrations
 ```python
-from motorized.migrations import migrate
+from motorized.migration import migrate
 
 
 async def main():
