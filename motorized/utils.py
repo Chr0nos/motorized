@@ -105,6 +105,13 @@ def deep_update_model(
     return model
 
 
+def safe_issubclass(a, b) -> bool:
+    try:
+        return issubclass(a, b)
+    except TypeError:
+        return False
+
+
 def get_all_fields_names(
     model: BaseModel,
     prefix: str = '',
@@ -115,7 +122,7 @@ def get_all_fields_names(
     for field_name, field in model.__fields__.items():
         if field_skip_func and field_skip_func(field_name, field):
             continue
-        if issubclass(field.type_, BaseModel):
+        if safe_issubclass(field.type_, BaseModel):
             fields.extend(get_all_fields_names(
                 field.type_,
                 f'{prefix}{field_name}{separator}',
