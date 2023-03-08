@@ -1,9 +1,9 @@
 import os
 from glob import glob
-from typing import List, Literal, Callable, Any, Optional, Dict, Type
+from typing import Literal, Callable, Any, Optional, Dict, Type
 from datetime import datetime
 from importlib import import_module
-from motorized import Document, QuerySet
+from motorized import Document
 import logging
 import asyncio
 from depsolve import walk
@@ -47,7 +47,6 @@ async def revert() -> int:
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 # thoses are the types from
 # https://docs.mongodb.com/manual/reference/bson-types/
@@ -121,7 +120,7 @@ class Migration(Document):
         return the amount of modified rows in the collection
         """
         if await self.is_applied() and not force:
-            logger.warning(f"{self.module_name} already applied.")
+            logger.info(f"{self.module_name} already applied.")
             return 0
 
         migration_module = import_module(self.module_name)
