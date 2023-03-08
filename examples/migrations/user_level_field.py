@@ -1,5 +1,4 @@
 from examples.user.models import User
-from motorized.migration import alter_field
 
 
 depends_on = ['examples.migrations.base']
