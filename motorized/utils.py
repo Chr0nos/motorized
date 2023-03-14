@@ -4,7 +4,7 @@ from typing import (
     Any, MutableMapping, Callable, Dict, Optional, List, Type, Union
 )
 from bson import ObjectId
-from functools import lru_cache
+from functools import lru_cache, partial
 
 
 def take_last_value(key: str, target: Any, *sources: Any) -> Any:
@@ -209,7 +209,11 @@ def model_map(
 
 
 @lru_cache
-def partial(baseclass: Type[BaseModel]) -> Type[BaseModel]:
+def partial_model(
+    baseclass: Type[BaseModel],
+    field_filter: Callable[[ModelField], bool] | None = None,
+    suffix: str = 'Partial'
+) -> Type[BaseModel]:
     """Make all fields in supplied Pydantic BaseModel Optional, for use in PATCH calls.
 
     Iterate over fields of baseclass, descend into sub-classes, convert fields to Optional and return new model.
@@ -223,6 +227,8 @@ def partial(baseclass: Type[BaseModel]) -> Type[BaseModel]:
     """
     fields = {}
     for name, field in baseclass.__fields__.items():
+        if field_filter and not field_filter(field):
+            continue
         type_ = field.type_
         if type_.__base__ is BaseModel:
             fields[name] = (Optional[partial(type_)], {})
@@ -235,5 +241,36 @@ def partial(baseclass: Type[BaseModel]) -> Type[BaseModel]:
     # https://docs.pydantic.dev/usage/models/#dynamic-model-creation
     validators = {"__validators__": baseclass.__validators__}
     return create_model(
-        baseclass.__name__ + "Partial", **fields, __validators__=validators
+        baseclass.__name__ + suffix, **fields, __validators__=validators
+    )
+
+
+def field_mark_filter(mark_list: List[str], field: ModelField) -> bool:
+    """Allow filtering of partial models to exclude fields by their names
+    if True the field will be kept, otherwise it will be removed from the
+    generated partial model.
+
+    ex:
+    ```python
+    PartialModel = partial_model(partial(field_mark_filter, ['private']))
+    ```
+    """
+    for mark in mark_list:
+        if field.field_info.extra.get(mark):
+            return False
+    return True
+
+
+def partial_update(
+        baseclass: Type[BaseModel],
+        suffix='PartialUpdate'
+    ) -> Type[BaseModel]:
+    """Return a model based on baseclass to partially update it.
+    all private & read_only fields will be removed.
+    all remaining fields will be optional
+    """
+    return partial_model(
+        baseclass,
+        partial(field_mark_filter, ['private', 'read_only']),
+        suffix=suffix
     )

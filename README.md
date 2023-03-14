@@ -502,6 +502,46 @@ all PATCH methods will accept partial payloads
 
 This little conveniant class for viewset can be used without the default method by using the `RestApiView` class from the `motorized.contrib.fastapi` module.
 
+### Partial Update
+It is possible to generate a partial update model with:
+
+```python
+from fastapi import status, HTTPException
+from fastapi.routing import APIRouter
+from motorized.types import InputObjectId
+from motorized.utils import partial_update
+from datetime import datetime
+
+router = APIRouter(prefix='/paste')
+
+
+class Paste(Document):
+    description: str | None = Field(None, max_length=1000)
+    content: str = Field(min_length=1, max_length=10000)
+    created: datetime = Field(default_factory=datetime.utcnow, read_only=True)
+
+
+async def get_paste(id: InputObjectId = Path(...)) -> Paste:
+    try:
+        return await Paste.objects.get(_id=id)
+    except Paste.DocumentNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+
+@router.patch('/{id}')
+async def update(
+    paste: Paste = Depends(get_paste),
+    updater: partial_update(Paste) = Body(...)
+) -> Prompt:
+    # note that here you may want to use paste.deep_update if you have nested
+    # documents.
+    paste.update(updater.dict(exclude_unset=True))
+    await paste.save()
+    return paste
+```
+
+Do not use `partial_update` in differents endpoints or change the suffix parameter
+otherwise the swagger will break
 
 ## Migrations
 it is possible to manage migrations for the database (field types changes)
