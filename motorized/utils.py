@@ -1,9 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 from pydantic.fields import ModelField
 from typing import (
     Any, MutableMapping, Callable, Dict, Optional, List, Type, Union
 )
 from bson import ObjectId
+from functools import lru_cache
 
 
 def take_last_value(key: str, target: Any, *sources: Any) -> Any:
@@ -205,3 +206,34 @@ def model_map(
         else:
             output[field.name] = field
     return node_factory(model, output, annotate_all_optional)
+
+
+@lru_cache
+def partial(baseclass: Type[BaseModel]) -> Type[BaseModel]:
+    """Make all fields in supplied Pydantic BaseModel Optional, for use in PATCH calls.
+
+    Iterate over fields of baseclass, descend into sub-classes, convert fields to Optional and return new model.
+    Cache newly created model with lru_cache to ensure it's only created once.
+    Use with Body to generate the partial model on the fly, in the PATCH path operation function.
+
+    - https://stackoverflow.com/questions/75167317/make-pydantic-basemodel-fields-optional-including-sub-models-for-patch
+    - https://stackoverflow.com/questions/67699451/make-every-fields-as-optional-with-pydantic
+    - https://github.com/pydantic/pydantic/discussions/3089
+    - https://fastapi.tiangolo.com/tutorial/body-updates/#partial-updates-with-patch
+    """
+    fields = {}
+    for name, field in baseclass.__fields__.items():
+        type_ = field.type_
+        if type_.__base__ is BaseModel:
+            fields[name] = (Optional[partial(type_)], {})
+        else:
+            fields[name] = (
+                (Optional[type_], None)
+                if field.required
+                else (type_, field.default)
+            )
+    # https://docs.pydantic.dev/usage/models/#dynamic-model-creation
+    validators = {"__validators__": baseclass.__validators__}
+    return create_model(
+        baseclass.__name__ + "Partial", **fields, __validators__=validators
+    )
