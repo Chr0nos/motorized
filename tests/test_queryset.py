@@ -11,9 +11,7 @@ from tests.models import Book, Named
 async def test_queryset_all():
     assert await Book.objects.all() == []
 
-    book = await Book.objects.create(
-        name='test', saga='test', pages=1, volume=1
-    )
+    book = await Book.objects.create(name="test", saga="test", pages=1, volume=1)
     books = await Book.objects.all()
     assert len(books) == 1
     assert isinstance(books, list)
@@ -23,11 +21,11 @@ async def test_queryset_all():
 @pytest.mark.asyncio
 @require_db
 async def test_queryset_async_iter():
-    await Book.objects.create(name='test', pages=1, volume=1)
-    await Book.objects.create(name='test', pages=1, volume=2)
+    await Book.objects.create(name="test", pages=1, volume=1)
+    await Book.objects.create(name="test", pages=1, volume=2)
 
     expected_volume = 1
-    async for book in Book.objects.order_by(['volume']):
+    async for book in Book.objects.order_by(["volume"]):
         assert isinstance(book, Book)
         assert book.volume == expected_volume
         expected_volume += 1
@@ -37,8 +35,8 @@ async def test_queryset_async_iter():
 @pytest.mark.asyncio
 @require_db
 async def test_map():
-    await Book.objects.create(name='test', pages=1, volume=1)
-    await Book.objects.create(name='toto', pages=40, volume=2)
+    await Book.objects.create(name="test", pages=1, volume=1)
+    await Book.objects.create(name="toto", pages=40, volume=2)
 
     async def mapping_function(book: Book) -> int:
         return book.pages * 2
@@ -50,20 +48,20 @@ async def test_map():
 @pytest.mark.asyncio
 @require_db
 async def test_get_simple():
-    await Book.objects.create(name='entropy', pages=1, volume=2)
-    await Book.objects.create(name='test', pages=1, volume=4)
+    await Book.objects.create(name="entropy", pages=1, volume=2)
+    await Book.objects.create(name="test", pages=1, volume=4)
 
-    book = await Book.objects.get(name='test')
-    assert book.name == 'test'
+    book = await Book.objects.get(name="test")
+    assert book.name == "test"
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_get_too_many_results():
-    await Book.objects.create(name='a', pages=1, volume=1)
-    await Book.objects.create(name='a', pages=4, volume=2)
+    await Book.objects.create(name="a", pages=1, volume=1)
+    await Book.objects.create(name="a", pages=4, volume=2)
     with pytest.raises(Book.TooManyMatchException):
-        await Book.objects.get(name='a')
+        await Book.objects.get(name="a")
 
 
 @pytest.mark.asyncio
@@ -71,13 +69,13 @@ async def test_get_too_many_results():
 async def test_get_no_result():
     await Book.objects.delete()
     with pytest.raises(Book.DocumentNotFound):
-        await Book.objects.get(name='nope')
+        await Book.objects.get(name="nope")
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_commit():
-    book = Book(name='test', pages=42, volume=3)
+    book = Book(name="test", pages=42, volume=3)
     assert await book.commit() == book
     assert book.id
 
@@ -85,43 +83,40 @@ async def test_commit():
 @pytest.mark.asyncio
 @require_db
 async def test_reload():
-    book = await Book.objects.create(name='test', pages=42, volume=3)
+    book = await Book.objects.create(name="test", pages=42, volume=3)
     # simulate a side effect, like an other process had changed the book
-    await Book.objects.collection.update_one(
-        {'_id': book.id},
-        {'$set': {'volume': 1}}
-    )
+    await Book.objects.collection.update_one({"_id": book.id}, {"$set": {"volume": 1}})
 
     await book.reload()
     assert book.volume == 1
-    assert book.name == 'test'
+    assert book.name == "test"
     assert book.pages == 42
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_get_first():
-    await Named.objects.create(name='C3PO')
+    await Named.objects.create(name="C3PO")
 
     x = await Named.objects.first()
-    assert x.name == 'C3PO'
+    assert x.name == "C3PO"
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_get_first_with_no_match():
     await Named.objects.delete()
-    await Named.objects.create(name='rabbit')
-    x = await Named.objects.filter(name='carott').first()
+    await Named.objects.create(name="rabbit")
+    x = await Named.objects.filter(name="carott").first()
     assert x is None
-    assert (await Named.objects.filter(name='rabbit').first()).name == 'rabbit'
+    assert (await Named.objects.filter(name="rabbit").first()).name == "rabbit"
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_drop_collection():
-    await Named.objects.create(name='abc')
-    await Named.objects.create(name='def')
+    await Named.objects.create(name="abc")
+    await Named.objects.create(name="def")
     await Named.objects.drop()
     assert await Named.objects.count() == 0
 
@@ -129,13 +124,11 @@ async def test_drop_collection():
 @pytest.mark.asyncio
 @require_db
 async def test_values_list():
-    names = ['zack', 'alice', 'bob', 'brian', 'hector']
+    names = ["zack", "alice", "bob", "brian", "hector"]
     for name in names:
         await Named.objects.create(name=name)
 
-    values = await Named.objects \
-        .order_by(['name']) \
-        .values_list('name', flat=True)
+    values = await Named.objects.order_by(["name"]).values_list("name", flat=True)
     assert values == sorted(names)
 
 
@@ -146,11 +139,11 @@ async def test_or():
         first_name: str
         last_name: str
 
-    charles = await User.objects.create(first_name='charles', last_name='dwarf')
-    alice = await User.objects.create(first_name='alice', last_name='cooper')
-    bob = await User.objects.create(first_name='bob', last_name='robberts')
+    charles = await User.objects.create(first_name="charles", last_name="dwarf")
+    alice = await User.objects.create(first_name="alice", last_name="cooper")
+    bob = await User.objects.create(first_name="bob", last_name="robberts")
 
-    query = Q(first_name='charles') | Q(last_name='cooper')
+    query = Q(first_name="charles") | Q(last_name="cooper")
     result = await User.objects.filter(query).all()
     assert charles in result
     assert alice in result
@@ -160,8 +153,8 @@ async def test_or():
 @pytest.mark.asyncio
 @require_db
 async def test_delete():
-    zack = await Named.objects.create(name='zack')
-    alice = await Named.objects.create(name='alice')
+    zack = await Named.objects.create(name="zack")
+    alice = await Named.objects.create(name="alice")
 
     await zack.delete()
     with pytest.raises(DocumentNotSavedError):
@@ -187,20 +180,20 @@ async def test_delete():
 @pytest.mark.asyncio
 @require_db
 async def test_queryset_override_collection_name():
-    assert Book.objects.collection.name == 'books'
-    with Book.objects.collection_name('migrate'):
-        assert Named.objects.collection.name == 'nameds'
-        assert Book.objects.collection.name == 'migrate'
-    assert Book.objects.collection.name == 'books'
+    assert Book.objects.collection.name == "books"
+    with Book.objects.collection_name("migrate"):
+        assert Named.objects.collection.name == "nameds"
+        assert Book.objects.collection.name == "migrate"
+    assert Book.objects.collection.name == "books"
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_queryset_update():
-    foo = await Book.objects.create(name='Foo', pages=1, volume=1)
-    blah = await Book.objects.create(name='Blah', pages=42, volume=3)
+    foo = await Book.objects.create(name="Foo", pages=1, volume=1)
+    blah = await Book.objects.create(name="Blah", pages=42, volume=3)
 
-    update = await Book.objects.filter(name='Foo').update(pages=100, volume=2)
+    update = await Book.objects.filter(name="Foo").update(pages=100, volume=2)
     assert isinstance(update, UpdateResult)
     await foo.reload()
     assert foo.pages == 100
@@ -218,36 +211,32 @@ async def test_queryset_update():
 @pytest.mark.asyncio
 @require_db
 async def test_queryset_unset():
-    foo = await Book.objects.create(name='foo', pages=0, volume=0)
-    await Book.objects.create(name='test', volume=1, pages=42)
-    await Book.objects.filter(name='test').unset(['pages', 'volume'])
-    data = await Book.objects.filter(name='test').find_one()
-    assert data['name'] == 'test'
-    assert 'pages' not in data
-    assert 'volume' not in data
-    assert '_id' in data
+    foo = await Book.objects.create(name="foo", pages=0, volume=0)
+    await Book.objects.create(name="test", volume=1, pages=42)
+    await Book.objects.filter(name="test").unset(["pages", "volume"])
+    data = await Book.objects.filter(name="test").find_one()
+    assert data["name"] == "test"
+    assert "pages" not in data
+    assert "volume" not in data
+    assert "_id" in data
     await foo.reload()
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_queryset_aggregation_pagination():
-    for letter in 'abcdef':
+    for letter in "abcdef":
         await Named.objects.create(name=letter)
     await Named.objects.update(extra=1)
 
-    lst = await Named.objects \
-        .order_by(['name']) \
-        .limit(3) \
-        .skip(3) \
-        .values_list('name', flat=True)
-    assert lst == ['d', 'e', 'f']
+    lst = await Named.objects.order_by(["name"]).limit(3).skip(3).values_list("name", flat=True)
+    assert lst == ["d", "e", "f"]
 
     # here we are testing the QuerySet._agregate pagination
-    sum_extra = Named.objects.order_by(['name']).skip(3).limit(3).sum('extra')
+    sum_extra = Named.objects.order_by(["name"]).skip(3).limit(3).sum("extra")
     assert await sum_extra == 3
 
-    sum_extra = Named.objects.order_by(['name']).skip(3).limit(1).sum('extra')
+    sum_extra = Named.objects.order_by(["name"]).skip(3).limit(1).sum("extra")
     assert await sum_extra == 1
 
 
@@ -261,3 +250,20 @@ async def test_queryset_rename_field():
     await Book.objects.rename({"name": "title"})
     assert await Book.objects.filter(title="test").exists()
     assert not await Book.objects.filter(name="test").exists()
+
+
+@pytest.mark.asyncio
+@require_db
+async def test():
+    from motorized.queryset import QuerySet
+
+    await Book(name="test", pages=0, volume=1).save()
+
+    async for book in Book.objects:
+        print(book)
+
+    q = QuerySet(Book)
+    x = await q.first()
+
+    books = await Book.objects.all()
+    books = await QuerySet(Book).all()

@@ -1,23 +1,21 @@
 from typing import List, Any, Dict, Tuple
-from motorized.keywords import (
-    Eq, Neq, In, Nin, Gte, Lte, Gt, Lt, Exists, Regex
-)
+from motorized.keywords import Eq, Neq, In, Nin, Gte, Lte, Gt, Lt, Exists, Regex
 from motorized.utils import merge_values, dict_deep_update
 
 
 KEYWORDS = {
-    'eq': Eq,
-    'neq': Neq,
-    'in': In,
-    'nin': Nin,
-    'gte': Gte,
-    'ge': Gte,
-    'lte': Lte,
-    'le': Lte,
-    'gt': Gt,
-    'lt': Lt,
-    'exists': Exists,
-    'regex': Regex
+    "eq": Eq,
+    "neq": Neq,
+    "in": In,
+    "nin": Nin,
+    "gte": Gte,
+    "ge": Gte,
+    "lte": Lte,
+    "le": Lte,
+    "gt": Gt,
+    "lt": Lt,
+    "exists": Exists,
+    "regex": Regex,
 }
 
 
@@ -44,7 +42,7 @@ class QueryDict(dict):
     def __init__(self, **kwargs) -> None:
         data = {}
         for key, value in kwargs.items():
-            path = key.split('__')
+            path = key.split("__")
             node = dict_path(path, value)
             dict_deep_update(data, node, on_conflict=merge_values)
         super().__init__(**data)
@@ -55,7 +53,7 @@ class Q:
         self.query = self.convert_kwargs_to_query(**kwargs)
 
     def __repr__(self) -> str:
-        return f'<Q: {self.query}>'
+        return f"<Q: {self.query}>"
 
     def copy(self) -> "Q":
         instance = Q()
@@ -65,7 +63,7 @@ class Q:
     @classmethod
     def raw(cls, query: Dict) -> "Q":
         if not isinstance(query, dict):
-            raise TypeError(f'A dictionary was expected, got {type(query)}')
+            raise TypeError(f"A dictionary was expected, got {type(query)}")
         instance = cls()
         instance.query = query
         return instance
@@ -74,18 +72,13 @@ class Q:
     def convert_kwargs_to_query(cls, invert=False, **kwargs) -> Dict:
         query = {}
         for key, value in kwargs.items():
-            path, value = cls.apply_keywords(
-                value,
-                key.split('__'),
-                invert=invert
-            )
+            path, value = cls.apply_keywords(value, key.split("__"), invert=invert)
             filter_dict = dict_path(path, value)
-            dict_deep_update(query, filter_dict,
-                             on_conflict=merge_values)
+            dict_deep_update(query, filter_dict, on_conflict=merge_values)
         return query
 
     @staticmethod
-    def read_dict_path(data: dict, path: List['str']) -> Any:
+    def read_dict_path(data: dict, path: List["str"]) -> Any:
         x = data
         for node in path:
             x = x[node]
@@ -93,13 +86,10 @@ class Q:
 
     @classmethod
     def apply_keywords(
-        cls,
-        raw_value: Any,
-        path: List[str],
-        invert: bool = False
+        cls, raw_value: Any, path: List[str], invert: bool = False
     ) -> Tuple[str, Any]:
         if invert and path[-1] not in KEYWORDS:
-            path.append('eq')
+            path.append("eq")
 
         for cmd in path:
             try:
@@ -121,7 +111,7 @@ class Q:
         return self.query == other.query
 
     def __or__(self, other: "Q") -> "Q":
-        return Q.raw({'$or': [self.query, other.query]})
+        return Q.raw({"$or": [self.query, other.query]})
 
     def __and__(self, other: "Q") -> "Q":
-        return Q.raw({'$and': [self.query, other.query]})
+        return Q.raw({"$and": [self.query, other.query]})

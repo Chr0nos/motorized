@@ -5,7 +5,7 @@ from .document import (
     EmbeddedDocument,
     PrivatesAttrsMixin,
     Field,
-    mark_parents
+    mark_parents,
 )  # noqa: F401
 from .query import Q  # noqa: F401
 from .queryset import QuerySet  # noqa: F401

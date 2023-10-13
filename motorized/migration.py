@@ -55,8 +55,7 @@ MongoType = Literal[
     "string",
     "object",
     "array",
-    "binData"
-    "undefined",
+    "binData" "undefined",
     "objectId",
     "bool",
     "date",
@@ -82,7 +81,7 @@ class Migration(Document):
     depends_on = []
 
     class Mongo:
-        local_fields = ('depends_on',)
+        local_fields = ("depends_on",)
 
     @property
     def name(self) -> str:
@@ -94,12 +93,11 @@ class Migration(Document):
     async def is_applied(self) -> bool:
         if self.id and self.applied_at:
             return True
-        return await Migration.objects \
-            .filter(module_name=self.module_name).exists()
+        return await Migration.objects.filter(module_name=self.module_name).exists()
 
     @property
     def path(self) -> str:
-        return self.module_name.replace('.', '/') + '.py'
+        return self.module_name.replace(".", "/") + ".py"
 
     @property
     def exists(self) -> bool:
@@ -124,13 +122,13 @@ class Migration(Document):
             return 0
 
         migration_module = import_module(self.module_name)
-        if not hasattr(migration_module, 'apply'):
+        if not hasattr(migration_module, "apply"):
             logger.error(f"{self} is malformed: no `apply` method found.")
             raise ValueError(self)
 
         # description formating if available
-        description = getattr(migration_module, 'description', None)
-        description: str = ': ' + description if description else '.'
+        description = getattr(migration_module, "description", None)
+        description: str = ": " + description if description else "."
 
         # perform the actual migration
         modified_count = await migration_module.apply()
@@ -145,7 +143,7 @@ class Migration(Document):
         migration_module = import_module(self.module_name)
         try:
             modified_count = await migration_module.revert()
-            print('revert function ok', modified_count)
+            print("revert function ok", modified_count)
             logger.info(f"Reverted {self.module_name} on {modified_count} rows.")
             await self.delete()
             return modified_count
@@ -159,12 +157,12 @@ class Migration(Document):
     @classmethod
     def from_module(cls, module: str) -> "Migration":
         migration_module = import_module(module)
-        if not hasattr(migration_module, 'apply'):
+        if not hasattr(migration_module, "apply"):
             raise ValueError(f"Module {module} does not have a apply function")
         migration = cls(
             module_name=module,
-            depends_on=getattr(migration_module, 'depends_on', []),
-            applied_at=None
+            depends_on=getattr(migration_module, "depends_on", []),
+            applied_at=None,
         )
         return migration
 
@@ -173,7 +171,7 @@ def value_from_dot_notation(data: Dict[str, Any], path: str) -> Any:
     """Take a dictionary `data` and get keys by the `path` parameter,
     this path parameter will use the dots (.) as delimiter.
     """
-    for key in path.split('.'):
+    for key in path.split("."):
         data = data[key]
     return data
 
@@ -192,29 +190,22 @@ async def alter_field(
     """
     if filter is None:
         filter = {}
-    projection = {field_name: True, '_id': True}
+    projection = {field_name: True, "_id": True}
     cursor = model.collection.find(filter, projection)
     modified_count = 0
     async for item in cursor:
         casted = await caster(value_from_dot_notation(item, field_name))
-        await model.collection.update_one(
-            {'_id': item['_id']},
-            {'$set': {field_name: casted}}
-        )
+        await model.collection.update_one({"_id": item["_id"]}, {"$set": {field_name: casted}})
         modified_count += 1
     return modified_count
 
 
 async def list_migrations(folder: str) -> list[Migration]:
     migrations = []
-    for item in glob(folder + '/*.py'):
+    for item in glob(folder + "/*.py"):
         if not os.path.isfile(item):
             continue
-        module_name = (
-            item
-            .replace('/', '.')
-            .replace('.py', '')
-        )
+        module_name = item.replace("/", ".").replace(".py", "")
         try:
             migrations.append(Migration.from_module(module_name))
         except ValueError:

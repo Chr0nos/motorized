@@ -1,5 +1,3 @@
-from typing import Optional
-
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from contextlib import asynccontextmanager
 
@@ -21,19 +19,11 @@ class Connection:
         after using the default database for authentication
         then you set the product database with this method.
         """
-        self.database = AsyncIOMotorDatabase(
-            client=self.client,
-            name=name,
-            **kwargs
-        )
+        self.database = AsyncIOMotorDatabase(client=self.client, name=name, **kwargs)
 
 
 @asynccontextmanager
-async def client(
-    *args,
-    client: Optional[AsyncIOMotorClient] = None,
-    **kwargs
-):
+async def client(*args, client: AsyncIOMotorClient | None = None, **kwargs):
     if not client:
         client = AsyncIOMotorClient(*args, **kwargs)
     old_client = connection.client

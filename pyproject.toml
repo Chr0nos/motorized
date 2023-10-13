@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "motorized"
-version = "0.6.7"
+version = "0.6.8"
 description = "Asyncio mongodb ODM based on pydantic"
 authors = ["Sebastien Nicolet <snicolet95@gmail.com>"]
 license = "MIT"
@@ -8,7 +8,7 @@ keywords = ["MongoDB", "Pydantic", "Asyncio", "ODM"]
 documentation = "https://github.com/Chr0nos/motorized/blob/master/README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 pydantic = "^1.8.2"
 depsolve = "^0.1.1"
 motor = "^3.1.1"
@@ -23,8 +23,12 @@ pytest-cov = "^3.0.0"
 mock = "^4.0.3"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.0.254"
+black = "^23.9.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
