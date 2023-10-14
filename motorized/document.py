@@ -13,7 +13,6 @@ from motorized.query import Q
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
 from motorized.utils import (
     deep_update_model,
-    get_all_fields_names,
     safe_issubclass,
 )
 from bson import ObjectId
