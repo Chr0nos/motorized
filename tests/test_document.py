@@ -7,7 +7,7 @@ from tests.utils import require_db
 from typing import List, Optional, Dict, Literal
 
 from motorized.exceptions import DocumentNotSavedError
-from motorized import Document, EmbeddedDocument, mark_parents, PrivatesAttrsMixin
+from motorized import Document, EmbeddedDocument, mark_parents
 
 
 @pytest.mark.asyncio
@@ -72,9 +72,7 @@ def test_document_update_with_nested():
 @pytest.mark.asyncio
 @require_db
 async def test_embedded_document_privates_attributes():
-    from motorized.document import PrivatesAttrsMixin
-
-    class Chapter(PrivatesAttrsMixin, EmbeddedDocument):
+    class Chapter(EmbeddedDocument):
         name: str
         _parent: Optional["Book"] = None  # noqa: F821
 
@@ -126,10 +124,10 @@ async def test_mark_parents():
 
 @pytest.mark.asyncio
 async def test_mark_parent_bis():
-    class Item(PrivatesAttrsMixin, EmbeddedDocument):
+    class Item(EmbeddedDocument):
         name: str
 
-    class Player(PrivatesAttrsMixin, Document):
+    class Player(Document):
         inventory: Dict[str, Item] = {}
         friends: List["Player"] = []
         temper: Literal["calm", "nervous"] | None = None
@@ -140,4 +138,4 @@ async def test_mark_parent_bis():
     assert toto._parent is None
     assert toto.inventory["gun"]._parent is toto
     assert toto.friends[0]._parent is toto
-    assert isinstance(toto.dict(), dict)
+    assert isinstance(toto.model_dump(), dict)

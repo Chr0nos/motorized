@@ -120,35 +120,6 @@ class DocumentBasis(PartialModelMixin):
         return super().__setattr__(name, value)
 
 
-class PrivatesAttrsMixin:
-    """Ommit any private arributes from iterators and .dict method on this
-    document.
-    """
-
-    class Config:
-        json_encoders = {ObjectId: str}
-        validate_assignment = True
-        underscore_attrs_are_private = True
-
-    def __iter__(self) -> Generator[str, Any, None]:
-        for field_name, field_value in super().__iter__():
-            if field_name not in self.model_fields.items():
-                continue
-            yield field_name, field_value
-
-    def dict(self, **kwargs) -> dict[str, Any]:
-        def resolve_field(value):
-            if isinstance(value, list):
-                return list([resolve_field(item) for item in value])
-            if isinstance(value, dict):
-                return dict({k: resolve_field(v) for k, v in value.items()})
-            if isinstance(value, BaseModel):
-                return value.model_dump(**kwargs)
-            return value
-
-        return dict({field_name: resolve_field(field_value) for field_name, field_value in self})
-
-
 class EmbeddedDocument(DocumentBasis):
     pass
 
