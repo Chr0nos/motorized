@@ -8,13 +8,13 @@ class PydanticObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, _):
         if not isinstance(v, ObjectId):
             raise TypeError("ObjectId required")
         return v
 
     @classmethod
-    def __modify_schema__(cls, schema: dict):
+    def __get_pydantic_json_schema__(cls, schema: dict):
         schema["type"] = "string"
 
 
@@ -29,7 +29,7 @@ class InputObjectId(str):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, _):
         try:
             return ObjectId(str(v))
         except (ValueError, InvalidId):

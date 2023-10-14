@@ -1,8 +1,10 @@
 from inspect import isclass
-from typing import Any, Dict, Type, Generator, Literal, Self
-from pydantic import BaseModel, Field, validate_model
-from pydantic.fields import ModelField
-from pydantic.main import ModelMetaclass
+from typing import Any, Dict, Type, Generator, Literal, Self, get_origin
+from pydantic import BaseModel, Field
+from pydantic.fields import FieldInfo
+from pydantic._internal._model_construction import ModelMetaclass
+from pydantic_partial import PartialModelMixin
+
 from pymongo.results import InsertOneResult, UpdateResult
 
 from motorized.queryset import QuerySet
@@ -14,12 +16,12 @@ from motorized.utils import (
     get_all_fields_names,
     model_map,
     dynamic_model_node_factory,
-    classproperty,
+    safe_issubclass,
 )
 
 
 class DocumentMeta(ModelMetaclass):
-    def __new__(cls, name, bases, optdict: Dict) -> Type["Document"]:
+    def __new__(cls, name, bases, optdict: Dict, **kwargs) -> Type["Document"]:
         # remove any reference to `objects` in the class
         # we only declare it to be readable and conveniant with the IDE
         # the filtering of objects is only effective if you declare a class
@@ -33,7 +35,7 @@ class DocumentMeta(ModelMetaclass):
             pass
 
         # we allocate the BaseModel with pydantic metaclass
-        instance: Type[Document] = super().__new__(cls, name, bases, optdict)
+        instance: Type[Document] = super().__new__(cls, name, bases, optdict, **kwargs)
         if name not in ("Document",):
             cls._populate_default_mongo_options(cls, name, instance, optdict.get("Mongo"))
 
@@ -87,7 +89,7 @@ class DocumentMeta(ModelMetaclass):
                 setattr(instance.Mongo, attribute_name, default_value)
 
 
-class DocumentBasis(BaseModel):
+class DocumentBasis(PartialModelMixin):
     """Represent the very bassis of Document and EmbeddedDocument"""
 
     class Config:
@@ -98,7 +100,7 @@ class DocumentBasis(BaseModel):
         """Update the current instance with the given `input_data` after
         validation return the object itself (without saving it in the database)
         """
-        validate_model(self, input_data)
+        self.model_validate(self.model_dump() | input_data)
         allow_extra: bool = getattr(self.Config, "extra", "ignore") == "allow"
 
         # load the fields into the current instance
@@ -129,7 +131,7 @@ class PrivatesAttrsMixin:
 
     def __iter__(self) -> Generator[str, Any, None]:
         for field_name, field_value in super().__iter__():
-            if field_name not in self.__fields__:
+            if field_name not in self.model_fields.items():
                 continue
             yield field_name, field_value
 
@@ -140,7 +142,7 @@ class PrivatesAttrsMixin:
             if isinstance(value, dict):
                 return dict({k: resolve_field(v) for k, v in value.items()})
             if isinstance(value, BaseModel):
-                return value.dict(**kwargs)
+                return value.model_dump(**kwargs)
             return value
 
         return dict({field_name: resolve_field(field_value) for field_name, field_value in self})
@@ -152,7 +154,7 @@ class EmbeddedDocument(DocumentBasis):
 
 class Document(DocumentBasis, metaclass=DocumentMeta):
     objects: QuerySet
-    id: PydanticObjectId | None = Field(alias="_id", read_only=True)
+    id: PydanticObjectId | None = Field(alias="_id", read_only=True, default=None)
 
     # @classmethod
     # def objects(cls) -> QuerySet[Self]:
@@ -185,7 +187,7 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         return (
             not field_name.startswith("_")
             and field_name not in cls.Mongo.local_fields
-            and field_name in cls.__fields__
+            and field_name in cls.model_fields
         )
 
     async def to_mongo(self) -> Dict:
@@ -193,7 +195,7 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         this also mean the aliased fields will be stored in the alias name
         instead of their name in the document declaration.
         """
-        saving_data = self.dict()
+        saving_data = self.model_dump()
 
         # remove any field that is not to save, this has to be done
         # before the aliasing resolving to allow to save/load fields
@@ -201,8 +203,8 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         saving_data = dict({k: v for k, v in saving_data.items() if self._is_field_to_save(k)})
 
         # resolve all alised fields to be saved in their alias name
-        for field in self._aliased_fields():
-            saving_data[field.alias] = saving_data.pop(field.name, None)
+        for field_name, field in self._aliased_fields():
+            saving_data[field.alias] = saving_data.pop(field_name, None)
 
         return saving_data
 
@@ -237,9 +239,13 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         return await self.objects.filter(self.get_query()).get()
 
     @classmethod
-    def _aliased_fields(cls) -> Generator[list[ModelField], None, None]:
+    def _aliased_fields(cls) -> Generator[tuple[str, FieldInfo], None, None]:
         """Return the list of fields with aliases"""
-        return [field for field in cls.__fields__.values() if field.name != field.alias]
+        return [
+            (name, field)
+            for name, field in cls.model_fields.items()
+            if name != field.alias and field.alias
+        ]
 
     def _transform(self, **kwargs) -> dict:
         """Override this method to change the input database before having it
@@ -254,14 +260,14 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         return self.update(model_data)
 
     def __repr__(self):
-        def get_field_entry(field: Field) -> str:
-            return f"{field.name}={getattr(self, field.name)}"
+        def get_field_entry(field_name: str) -> str:
+            return f'{field_name}="{getattr(self, field_name)}"'
 
         fields = ", ".join(
             [
-                get_field_entry(field)
-                for field in self.__fields__.values()
-                if field.name not in self.Mongo.local_fields
+                get_field_entry(field_name)
+                for field_name in self.model_fields.keys()
+                if field_name not in self.Mongo.local_fields
             ]
         )
         return f"{self.__class__.__name__}({fields})"
@@ -279,12 +285,12 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         return list(cls.get_marked_fields("read_only").keys())
 
     @classmethod
-    def get_marked_fields(cls, mark: str, value=True, default=False) -> dict[str, ModelField]:
+    def get_marked_fields(cls, mark: str, value=True, default=False) -> dict[str, FieldInfo]:
         return dict(
             {
                 field_name: field
-                for field_name, field in cls.__fields__.items()
-                if field.field_info.extra.get(mark, default) == value
+                for field_name, field in cls.model_fields.items()
+                if field.json_schema_extra and field.json_schema_extra.get(mark, default) == value
             }
         )
 
@@ -323,25 +329,27 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         ```
         """
 
-        def is_excluded(model: BaseModel, field: ModelField) -> bool:
+        def is_excluded(model: BaseModel, field_name: str, field: FieldInfo) -> bool:
             if not exclude:
                 return False
             for exclude_model, exclude_field_names in exclude.items():
                 if model == exclude_model:
                     if exclude_field_names is None:
                         return True
-                    if field.field_info.name in exclude_field_names:
+                    if field_name in exclude_field_names:
                         return True
             return False
 
-        def field_filtering(model: BaseModel, field: ModelField) -> ModelField | None:
-            if is_excluded(model, field):
+        def field_filtering(
+            model: BaseModel, field_name: str, field: FieldInfo
+        ) -> FieldInfo | None:
+            if is_excluded(model, field_name, field):
                 return None
             if exclude_fields_marks:
                 for mark in exclude_fields_marks:
-                    if field.field_info.extra.get(mark):
+                    if field.json_schema_extra and field.json_schema_extra.get(mark):
                         return None
-            if field.name in cls.Mongo.local_fields:
+            if field_name in cls.Mongo.local_fields:
                 return None
             return field
 
@@ -353,14 +361,15 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         perspective (ignore all Fields(private=True))
         """
 
-        def is_ignored(field_name: str, field: ModelField) -> bool:
-            if field.field_info.extra.get("private", False):
+        def is_ignored(field_name: str, field: FieldInfo) -> bool:
+            if field.json_schema_extra and field.json_schema_extra.get("private", False):
                 return True
             if field_name in cls.Mongo.local_fields:
                 return True
             return False
 
         fields = get_all_fields_names(cls, field_skip_func=is_ignored)
+
         fields.extend([f"-{field_name}" for field_name in fields])
         fields.sort(key=lambda x: x if not x.startswith("-") else x[1:])
         return Literal[tuple(fields)]
@@ -375,21 +384,13 @@ def mark_parents(model: DocumentBasis, parent: DocumentBasis | None = None) -> N
     .dict method.
     """
     model._parent = parent
-    for field in model.__fields__.values():
-        field: ModelField = field
-        try:
-            if not issubclass(field.type_, DocumentBasis):
-                continue
-        # in this error all the Literal will fall, we don't want to mark them
-        # so we just continue.
-        except TypeError:
-            continue
+    for field_name, field in model.model_fields.items():
+        item = getattr(model, field_name)
 
-        item = getattr(model, field.name)
-        if isinstance(item, DocumentBasis):
+        if safe_issubclass(item, DocumentBasis):
             mark_parents(item, model)
 
-        elif isinstance(item, list):
+        elif get_origin(field.annotation) in (list, tuple):
             for submodel in item:
                 mark_parents(submodel, model)
 

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, create_model
-from pydantic.fields import ModelField
+from pydantic.fields import FieldInfo
 from typing import Any, MutableMapping, Callable, Dict, Optional, List, Type, Union
 from bson import ObjectId
 from functools import lru_cache, partial
@@ -114,16 +114,16 @@ def get_all_fields_names(
     model: BaseModel,
     prefix: str = "",
     separator: str = "__",
-    field_skip_func: Optional[Callable[[str, ModelField], bool]] = None,
-) -> List[str]:
-    fields = []
-    for field_name, field in model.__fields__.items():
+    field_skip_func: Optional[Callable[[str, FieldInfo], bool]] = None,
+) -> list[str]:
+    fields: list[str] = []
+    for field_name, field in model.model_fields.items():
         if field_skip_func and field_skip_func(field_name, field):
             continue
-        if safe_issubclass(field.type_, BaseModel):
+        if safe_issubclass(field.annotation, BaseModel):
             fields.extend(
                 get_all_fields_names(
-                    field.type_,
+                    field.annotation,
                     f"{prefix}{field_name}{separator}",
                     separator,
                     field_skip_func=field_skip_func,
@@ -136,41 +136,43 @@ def get_all_fields_names(
 
 def get_all_fields(
     model: BaseModel,
-    is_ignored: Optional[Callable[[BaseModel, ModelField], bool]] = None,
+    is_ignored: Optional[Callable[[BaseModel, FieldInfo], bool]] = None,
     node_factory: Type = dict,
-) -> Dict[str, ModelField]:
+) -> Dict[str, FieldInfo]:
     fields = {}
-    for field_name, field in model.__fields__.items():
+    for field_name, field in model.model_fields.items():
         if is_ignored and is_ignored(model, field):
             continue
-        if safe_issubclass(field.type_, BaseModel):
-            fields[field_name] = get_all_fields(model=field.type_, is_ignored=is_ignored)
+        if safe_issubclass(field.annotation, BaseModel):
+            fields[field_name] = get_all_fields(model=field.annotation, is_ignored=is_ignored)
         else:
             fields[field_name] = field
     return node_factory(fields)
 
 
 def dynamic_model_node_factory(
-    model: BaseModel, node_data: Dict, annotate_all_optional: bool = False
+    model: BaseModel,
+    node_data: Dict,
+    annotate_all_optional: bool = False,
 ) -> BaseModel:
-    def select_annoted_type_from_field(field: Union[ModelField, BaseModel]) -> Type:
-        if not isinstance(field, ModelField):
+    def select_annoted_type_from_field(field_name: str, field: Union[FieldInfo, BaseModel]) -> Type:
+        if not isinstance(field, FieldInfo):
             return field if not annotate_all_optional else Optional[field]
-        field_type = model.__annotations__.get(field.name, field.type_)
+        field_type = model.__annotations__.get(field_name, field.annotation)
         return field_type if not annotate_all_optional else Optional[field_type]
 
     annotations = dict(
         {
-            field_name: select_annoted_type_from_field(field)
+            field_name: select_annoted_type_from_field(field_name, field)
             for field_name, field in node_data.items()
         }
     )
     optdict = {"__annotations__": annotations}
     optdict.update(
         {
-            field.name: field.field_info
-            for field in node_data.values()
-            if isinstance(field, ModelField)
+            field_name: field
+            for field_name, field in node_data.items()
+            if isinstance(field, FieldInfo)
         }
     )
 
@@ -184,27 +186,28 @@ def dynamic_model_node_factory(
 
 def model_map(
     model: BaseModel,
-    func: Callable[[BaseModel, ModelField], Optional[Any]],
+    func: Callable[[BaseModel, str, FieldInfo], Optional[Any]],
     node_factory: Callable[[BaseModel, Any, bool], Optional[Any]] = lambda model, data, _: data,
     annotate_all_optional: bool = False,
 ):
     output = {}
-    fields: List[Union[ModelField, BaseModel]] = model.__fields__.values()
-    for field in fields:
-        field = func(model, field)
+    for field_name, field in model.model_fields.items():
+        field = func(model, field_name, field)
         if field is None:
             continue
-        if safe_issubclass(field.type_, BaseModel):
-            output[field.name] = model_map(field.type_, func, node_factory, annotate_all_optional)
+        if safe_issubclass(field.annotation, BaseModel):
+            output[field_name] = model_map(
+                field.annotation, func, node_factory, annotate_all_optional
+            )
         else:
-            output[field.name] = field
+            output[field_name] = field
     return node_factory(model, output, annotate_all_optional)
 
 
 @lru_cache
 def partial_model(
     baseclass: Type[BaseModel],
-    field_filter: Callable[[ModelField], bool] | None = None,
+    field_filter: Callable[[str, FieldInfo], bool] | None = None,
     suffix: str = "Partial",
 ) -> Type[BaseModel]:
     """Make all fields in supplied Pydantic BaseModel Optional, for use in PATCH calls.
@@ -219,10 +222,11 @@ def partial_model(
     - https://fastapi.tiangolo.com/tutorial/body-updates/#partial-updates-with-patch
     """
     fields = {}
-    for name, field in baseclass.__fields__.items():
+    for name, field in baseclass.model_fields.items():
         if field_filter and not field_filter(field):
             continue
-        type_ = field.type_
+
+        type_ = field.annotations
         if type_.__base__ is BaseModel:
             fields[name] = (Optional[partial(type_)], {})
         else:
@@ -232,7 +236,7 @@ def partial_model(
     return create_model(baseclass.__name__ + suffix, **fields, __validators__=validators)
 
 
-def field_mark_filter(mark_list: List[str], field: ModelField) -> bool:
+def field_mark_filter(mark_list: List[str], field_name: str, field: FieldInfo) -> bool:
     """Allow filtering of partial models to exclude fields by their names
     if True the field will be kept, otherwise it will be removed from the
     generated partial model.
@@ -243,7 +247,7 @@ def field_mark_filter(mark_list: List[str], field: ModelField) -> bool:
     ```
     """
     for mark in mark_list:
-        if field.field_info.extra.get(mark):
+        if field.json_schema_extra and field.json_schema_extra.get(mark):
             return False
     return True
 
@@ -256,11 +260,3 @@ def partial_update(baseclass: Type[BaseModel], suffix="PartialUpdate") -> Type[B
     return partial_model(
         baseclass, partial(field_mark_filter, ["private", "read_only"]), suffix=suffix
     )
-
-
-class classproperty:
-    def __init__(self, f):
-        self.f = f
-
-    def __get__(self, obj, owner):
-        return self.f(owner)

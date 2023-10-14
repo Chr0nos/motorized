@@ -78,7 +78,7 @@ MongoType = Literal[
 class Migration(Document):
     module_name: str
     applied_at: Optional[datetime] = None
-    depends_on = []
+    depends_on: list[str] = []
 
     class Mongo:
         local_fields = ("depends_on",)
