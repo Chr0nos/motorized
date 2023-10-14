@@ -1,5 +1,5 @@
 from inspect import isclass
-from typing import Any, Dict, Generator, Self, Type, get_origin
+from typing import Any, Generator, Self, Type
 
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
@@ -15,7 +15,7 @@ from motorized.utils import deep_update_model
 
 
 class DocumentMeta(ModelMetaclass):
-    def __new__(cls, name, bases, optdict: Dict, **kwargs) -> Type["Document"]:
+    def __new__(cls, name, bases, optdict: dict, **kwargs) -> Type["Document"]:
         # remove any reference to `objects` in the class
         # we only declare it to be readable and conveniant with the IDE
         # the filtering of objects is only effective if you declare a class
@@ -143,12 +143,12 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
             raise DocumentNotSavedError("document has no id.")
         return Q(_id=document_id)
 
-    async def _create_in_db(self, creation_dict: Dict) -> InsertOneResult:
+    async def _create_in_db(self, creation_dict: dict) -> InsertOneResult:
         response = await self.objects.insert_one(creation_dict)
         self.id = response.inserted_id
         return response
 
-    async def _update_in_db(self, update_dict: Dict) -> UpdateResult:
+    async def _update_in_db(self, update_dict: dict) -> UpdateResult:
         return await self.objects.collection.update_one(
             filter={"_id": self.id}, update={"$set": update_dict}
         )
@@ -161,7 +161,7 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
             and field_name in cls.model_fields
         )
 
-    async def to_mongo(self) -> Dict:
+    async def to_mongo(self) -> dict:
         """Convert the current model dictionary to database output dict,
         this also mean the aliased fields will be stored in the alias name
         instead of their name in the document declaration.
