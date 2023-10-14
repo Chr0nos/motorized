@@ -1,23 +1,22 @@
 from inspect import isclass
 from typing import Any, Dict, Type, Generator, Literal, Self, get_origin
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer, field_serializer, ConfigDict
 from pydantic.fields import FieldInfo
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic_partial import PartialModelMixin
+from bson import ObjectId
 
 from pymongo.results import InsertOneResult, UpdateResult
 
 from motorized.queryset import QuerySet
 from motorized.query import Q
-from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
 from motorized.utils import (
     deep_update_model,
     get_all_fields_names,
-    model_map,
-    dynamic_model_node_factory,
     safe_issubclass,
 )
+from bson import ObjectId
 
 
 class DocumentMeta(ModelMetaclass):
@@ -92,16 +91,18 @@ class DocumentMeta(ModelMetaclass):
 class DocumentBasis(PartialModelMixin):
     """Represent the very bassis of Document and EmbeddedDocument"""
 
-    class Config:
-        json_encoders = {ObjectId: str}
-        validate_assignment = True
+    model_config = ConfigDict(
+        extra="ignore",
+        validate_assignment=True,
+        arbitrary_types_allowed=True,
+    )
 
     def update(self, input_data: dict) -> Self:
         """Update the current instance with the given `input_data` after
         validation return the object itself (without saving it in the database)
         """
         self.model_validate(self.model_dump() | input_data)
-        allow_extra: bool = getattr(self.Config, "extra", "ignore") == "allow"
+        allow_extra: bool = getattr(self.model_config, "extra", "ignore") == "allow"
 
         # load the fields into the current instance
         for field, value in input_data.items():
@@ -154,7 +155,7 @@ class EmbeddedDocument(DocumentBasis):
 
 class Document(DocumentBasis, metaclass=DocumentMeta):
     objects: QuerySet
-    id: PydanticObjectId | None = Field(alias="_id", read_only=True, default=None)
+    id: ObjectId | None = Field(alias="_id", default=None)
 
     # @classmethod
     # def objects(cls) -> QuerySet[Self]:
@@ -165,6 +166,10 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
 
     def __init__(self, *args, **kwargs) -> None:
         BaseModel.__init__(self, *args, **self._transform(**kwargs))
+
+    @field_serializer("id")
+    def serialize_id(self, value: ObjectId, _info) -> str:
+        return str(value)
 
     def get_query(self) -> Q:
         document_id = getattr(self, "id", None)
@@ -210,10 +215,10 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
 
     async def save(self, force_insert: bool = False) -> InsertOneResult | UpdateResult:
         data = await self.to_mongo()
-        document_id = data.pop("_id", None)
-        if document_id is None or force_insert:
+        data.pop("_id", None)
+        if self.id is None or force_insert:
             if force_insert:
-                data["_id"] = document_id
+                data["_id"] = self.id
             return await self._create_in_db(data)
         return await self._update_in_db(data)
 
@@ -272,108 +277,6 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         )
         return f"{self.__class__.__name__}({fields})"
 
-    # def __setattr__(self, name: str, value: Any) -> None:
-    #     # allow any private attribute to be passed
-    #     if name.startswith('_') or name in self.Mongo.local_fields:
-    #         return object.__setattr__(self, name, value)
-
-    #     # otherwise we let pydantic decide
-    #     return super().__setattr__(name, value)
-
-    @classmethod
-    def get_readonly_fields(cls):
-        return list(cls.get_marked_fields("read_only").keys())
-
-    @classmethod
-    def get_marked_fields(cls, mark: str, value=True, default=False) -> dict[str, FieldInfo]:
-        return dict(
-            {
-                field_name: field
-                for field_name, field in cls.model_fields.items()
-                if field.json_schema_extra and field.json_schema_extra.get(mark, default) == value
-            }
-        )
-
-    @classmethod
-    def get_updater_model(
-        cls,
-        exclude: list[tuple[BaseModel, list[str] | None]] | None = None,
-    ) -> Type[BaseModel]:
-        return cls.get_filtered_model(exclude, ["read_only", "private"])
-
-    @classmethod
-    def get_reader_model(
-        cls,
-        exclude: list[tuple[BaseModel, list[str] | None]] | None = None,
-        exclude_fields_marks: list[str] | None = None,
-    ) -> Type[BaseModel]:
-        if exclude_fields_marks is None:
-            exclude_fields_marks = []
-        reader = cls.get_filtered_model(exclude, ["private"] + exclude_fields_marks)
-        model = type(cls.__name__ + "Reader", (reader,), {})
-        return model
-
-    @classmethod
-    def get_filtered_model(
-        cls,
-        exclude: list[tuple[BaseModel, list[str] | None]] | None = None,
-        exclude_fields_marks: list[str] | None = None,
-    ) -> Type[BaseModel]:
-        """This class factory function create a new BaseModel from this model
-        with all the fields that are not marked as `read_only`, all the fields
-        are optional in the generated model
-
-        exemple:
-        ```python
-        updater = User.get_updater_model(exclude=[(User, ['password'])])
-        ```
-        """
-
-        def is_excluded(model: BaseModel, field_name: str, field: FieldInfo) -> bool:
-            if not exclude:
-                return False
-            for exclude_model, exclude_field_names in exclude.items():
-                if model == exclude_model:
-                    if exclude_field_names is None:
-                        return True
-                    if field_name in exclude_field_names:
-                        return True
-            return False
-
-        def field_filtering(
-            model: BaseModel, field_name: str, field: FieldInfo
-        ) -> FieldInfo | None:
-            if is_excluded(model, field_name, field):
-                return None
-            if exclude_fields_marks:
-                for mark in exclude_fields_marks:
-                    if field.json_schema_extra and field.json_schema_extra.get(mark):
-                        return None
-            if field_name in cls.Mongo.local_fields:
-                return None
-            return field
-
-        return model_map(cls, field_filtering, dynamic_model_node_factory, True)
-
-    @classmethod
-    def get_public_ordering_fields(cls) -> Literal:
-        """Return a literal with all visibles fields from an external use
-        perspective (ignore all Fields(private=True))
-        """
-
-        def is_ignored(field_name: str, field: FieldInfo) -> bool:
-            if field.json_schema_extra and field.json_schema_extra.get("private", False):
-                return True
-            if field_name in cls.Mongo.local_fields:
-                return True
-            return False
-
-        fields = get_all_fields_names(cls, field_skip_func=is_ignored)
-
-        fields.extend([f"-{field_name}" for field_name in fields])
-        fields.sort(key=lambda x: x if not x.startswith("-") else x[1:])
-        return Literal[tuple(fields)]
-
 
 def mark_parents(model: DocumentBasis, parent: DocumentBasis | None = None) -> None:
     """Mark all nested items with a `_parent` attribute pointing to their
@@ -387,10 +290,10 @@ def mark_parents(model: DocumentBasis, parent: DocumentBasis | None = None) -> N
     for field_name, field in model.model_fields.items():
         item = getattr(model, field_name)
 
-        if safe_issubclass(item, DocumentBasis):
+        if isinstance(item, BaseModel):
             mark_parents(item, model)
 
-        elif get_origin(field.annotation) in (list, tuple):
+        elif type(item) in (list, tuple):
             for submodel in item:
                 mark_parents(submodel, model)
 

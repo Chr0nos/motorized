@@ -190,72 +190,8 @@ async def test_not_connected():
 
 
 @pytest.mark.asyncio
-async def test_document_updater():
-    billy = Player(name="Billy", position={"x": 0.0, "y": 1.0, "z": 1.0})
-    assert Player.get_readonly_fields() == ["id", "name", "golds", "hp"]
-    model = Player.get_updater_model()
-    payload = {
-        "id": "ignore me",
-        "name": "Simon",
-        "position": {"x": 2.0, "w": 4.0},
-        "ignore_me": True,
-        "hp": {"left": 42},
-        "golds": 2,
-    }
-    data = model(**payload).dict(exclude_unset=True)
-    billy.deep_update(data)
-    assert billy.position == {"x": 2.0, "y": 1.0, "z": 1.0}
-    assert billy.name == "Billy"
-    assert billy.id is None
-    assert not hasattr(billy, "ignore_me")
-    assert billy.golds == 0
-    assert billy.hp.left == 10, "this field is read only"
-
-    # this update should reset the positions since a None has been
-    # passed as position.
-    billy.deep_update({"position": None})
-    assert billy.position == {"x": 0.0, "y": 0.0, "z": 0.0}
-
-    billy.position = {"x": 10.0, "y": 10.0, "z": 10.0}
-    # this update should leave the actual positions as they are since no values
-    # were changed
-    billy.deep_update({"position": {}})
-    assert billy.position == {"x": 10.0, "y": 10.0, "z": 10.0}
-
-    # this update should reset the positions
-    billy.update({"position": {}})
-    assert billy.position == {"x": 0.0, "y": 0.0, "z": 0.0}
-
-    assert isinstance(billy.__repr__(), str)
-
-
-@pytest.mark.asyncio
 async def test_document_delete_without_id():
     bob = Named(name="bob")
     await bob.delete()
     assert bob.name == "bob"
     assert bob.id is None
-
-
-def test_document_ordering_fields():
-    fields_literal = Player.get_public_ordering_fields()
-    ordering_values = list(get_args(fields_literal))
-    expected_orderings = [
-        "golds",
-        "-golds",
-        "hp__left",
-        "-hp__left",
-        "hp__max",
-        "-hp__max",
-        "id",
-        "-id",
-        "name",
-        "-name",
-        "position__x",
-        "-position__x",
-        "position__y",
-        "-position__y",
-        "position__z",
-        "-position__z",
-    ]
-    assert ordering_values == expected_orderings

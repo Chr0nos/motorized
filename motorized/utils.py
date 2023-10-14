@@ -150,40 +150,6 @@ def get_all_fields(
     return node_factory(fields)
 
 
-def dynamic_model_node_factory(
-    model: BaseModel,
-    node_data: Dict,
-    annotate_all_optional: bool = False,
-) -> BaseModel:
-    def select_annoted_type_from_field(field_name: str, field: Union[FieldInfo, BaseModel]) -> Type:
-        if not isinstance(field, FieldInfo):
-            return field if not annotate_all_optional else Optional[field]
-        field_type = model.__annotations__.get(field_name, field.annotation)
-        return field_type if not annotate_all_optional else Optional[field_type]
-
-    annotations = dict(
-        {
-            field_name: select_annoted_type_from_field(field_name, field)
-            for field_name, field in node_data.items()
-        }
-    )
-    optdict = {"__annotations__": annotations}
-    optdict.update(
-        {
-            field_name: field
-            for field_name, field in node_data.items()
-            if isinstance(field, FieldInfo)
-        }
-    )
-
-    class Config:
-        json_encoders = {ObjectId: lambda x: str(x)}
-
-    optdict["Config"] = Config
-    model = type("DynamicModel", (BaseModel,), optdict)
-    return model
-
-
 def model_map(
     model: BaseModel,
     func: Callable[[BaseModel, str, FieldInfo], Optional[Any]],

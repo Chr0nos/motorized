@@ -1,14 +1,13 @@
 import pytest
 from bson import ObjectId
 from pymongo.results import InsertOneResult, UpdateResult
-from pydantic import BaseModel
 
 from tests.models import Named
 from tests.utils import require_db
 from typing import List, Optional, Dict, Literal
 
 from motorized.exceptions import DocumentNotSavedError
-from motorized import Document, Field, EmbeddedDocument, mark_parents, PrivatesAttrsMixin
+from motorized import Document, EmbeddedDocument, mark_parents, PrivatesAttrsMixin
 
 
 @pytest.mark.asyncio
@@ -44,39 +43,6 @@ async def test_save_with_custom_id():
     assert isinstance(await bob.save(), UpdateResult)
 
 
-@pytest.mark.asyncio
-@require_db
-async def test_document_reader_model():
-    bob = Named(name="bob")
-    await bob.save()
-    reader_model = bob.get_reader_model()
-    reader = reader_model(**bob.dict(by_alias=True))
-    assert isinstance(reader, BaseModel)
-    output = reader.model_dump()
-    assert output["id"] == bob.id
-
-    print(bob.model_fields)
-    print(reader.model_fields)
-
-    assert reader_model.model_fields["id"].alias == "_id"
-
-
-def test_document_reader_aliasing():
-    class Test(Document):
-        x: int = Field(alias="y")
-
-    assert Test.model_fields["x"].alias == "y"
-
-
-def test_document_reader_with_contraints():
-    class Animal(Document):
-        legs: int = Field(ge=0, lt=5)
-
-    # print(Animal.model_fields)
-    # print(dir(Animal))
-    Animal.get_reader_model()
-
-
 def test_document_update_with_nested():
     class Chapter(EmbeddedDocument):
         name: str
@@ -101,18 +67,6 @@ def test_document_update_with_nested():
 
     x.chapters[0].update({"name": "changed"})
     assert x.chapters[0].name == "changed"
-
-
-def test_document_private_override():
-    class Test(Document):
-        name: str
-        _something: int
-
-    x = Test(name="test")
-    x._something = 42
-    assert x._something == 42
-    assert "_something" not in Test.get_reader_model().model_fields
-    assert "name" in Test.get_reader_model().model_fields
 
 
 @pytest.mark.asyncio

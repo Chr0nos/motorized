@@ -32,8 +32,8 @@ class PlayerStat(BaseModel):
 
 
 class Player(Document):
-    name: str = Field("Player one", read_only=True)
+    name: str = Field(default="Player one")
     position: Position = Position()
-    golds: int = Field(read_only=True, default=0)
-    hp: PlayerStat = Field(PlayerStat(left=10, max=10), read_only=True)
-    comments: str | None = Field(private=True, default=None)
+    golds: int = Field(default=0)
+    hp: PlayerStat = Field(PlayerStat(left=10, max=10))
+    comments: str | None = Field(default=None)
