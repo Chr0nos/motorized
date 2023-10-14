@@ -1,30 +1,31 @@
 from abc import ABC
+from contextlib import contextmanager
 from typing import (
     Any,
-    Generator,
-    List,
+    AsyncGenerator,
     Callable,
     Dict,
+    Generator,
+    Generic,
+    List,
     Optional,
-    AsyncGenerator,
+    Self,
     Type,
     TypeVar,
-    Generic,
-    Self,
 )
+
 from motor.motor_asyncio import (
-    AsyncIOMotorCollection,
-    AsyncIOMotorDatabase,
-    AsyncIOMotorCursor,
     AsyncIOMotorClientSession,
+    AsyncIOMotorCollection,
+    AsyncIOMotorCursor,
+    AsyncIOMotorDatabase,
 )
 from pymongo import ASCENDING, DESCENDING
 from pymongo.results import InsertOneResult, UpdateResult
-from motorized.query import Q, QueryDict
+
 from motorized.client import connection
 from motorized.exceptions import NotConnectedException
-from contextlib import contextmanager
-
+from motorized.query import Q, QueryDict
 
 T = TypeVar("T")
 
