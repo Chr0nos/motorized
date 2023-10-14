@@ -1,6 +1,7 @@
+from typing import Any, Callable, MutableMapping
+
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
-from typing import Any, MutableMapping, Callable
 
 
 def take_last_value(key: str, target: Any, *sources: Any) -> Any:

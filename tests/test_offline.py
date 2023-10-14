@@ -1,13 +1,12 @@
+from typing import Any, Optional, get_args
+
 import pytest
-
-from tests.models import Player, Named
-
-from pydantic import BaseModel
-from typing import Optional, Any, get_args
 from bson.objectid import ObjectId
+from pydantic import BaseModel
 
-from motorized import connection, Document, QuerySet
+from motorized import Document, QuerySet, connection
 from motorized.exceptions import DocumentNotSavedError, NotConnectedException
+from tests.models import Named, Player
 
 
 def test_document_type():

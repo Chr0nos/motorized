@@ -1,13 +1,14 @@
-import os
-from glob import glob
-from typing import Literal, Callable, Any, Optional, Dict, Type
-from datetime import datetime
-from importlib import import_module
-from motorized import Document
-import logging
 import asyncio
+import logging
+import os
+from datetime import datetime
+from glob import glob
+from importlib import import_module
+from typing import Any, Callable, Dict, Literal, Optional, Type
+
 from depsolve import walk
 
+from motorized import Document
 
 """
 # Migrations

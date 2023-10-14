@@ -1,13 +1,13 @@
+from typing import Dict, List, Literal, Optional
+
 import pytest
 from bson import ObjectId
 from pymongo.results import InsertOneResult, UpdateResult
 
+from motorized import Document, EmbeddedDocument, mark_parents
+from motorized.exceptions import DocumentNotSavedError
 from tests.models import Named
 from tests.utils import require_db
-from typing import List, Optional, Dict, Literal
-
-from motorized.exceptions import DocumentNotSavedError
-from motorized import Document, EmbeddedDocument, mark_parents
 
 
 @pytest.mark.asyncio

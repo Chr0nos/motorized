@@ -1,21 +1,17 @@
 from inspect import isclass
-from typing import Any, Dict, Type, Generator, Literal, Self, get_origin
-from pydantic import BaseModel, Field, model_serializer, field_serializer, ConfigDict
-from pydantic.fields import FieldInfo
-from pydantic._internal._model_construction import ModelMetaclass
-from pydantic_partial import PartialModelMixin
-from bson import ObjectId
+from typing import Any, Dict, Generator, Self, Type, get_origin
 
+from bson import ObjectId
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic._internal._model_construction import ModelMetaclass
+from pydantic.fields import FieldInfo
+from pydantic_partial import PartialModelMixin
 from pymongo.results import InsertOneResult, UpdateResult
 
-from motorized.queryset import QuerySet
-from motorized.query import Q
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
-from motorized.utils import (
-    deep_update_model,
-    safe_issubclass,
-)
-from bson import ObjectId
+from motorized.query import Q
+from motorized.queryset import QuerySet
+from motorized.utils import deep_update_model
 
 
 class DocumentMeta(ModelMetaclass):
