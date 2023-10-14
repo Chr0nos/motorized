@@ -108,12 +108,6 @@ class DocumentBasis(PartialModelMixin):
     def deep_update(self, input_data: dict, **kwargs) -> Self:
         return deep_update_model(self, input_data, **kwargs)
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name.startswith("_"):
-            return object.__setattr__(self, name, value)
-
-        return super().__setattr__(name, value)
-
 
 class EmbeddedDocument(DocumentBasis):
     pass
@@ -161,12 +155,12 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
             and field_name in cls.model_fields
         )
 
-    async def to_mongo(self) -> Dict:
+    async def to_mongo(self, **kwargs) -> dict[str, Any]:
         """Convert the current model dictionary to database output dict,
         this also mean the aliased fields will be stored in the alias name
         instead of their name in the document declaration.
         """
-        saving_data = self.model_dump()
+        saving_data = self.model_dump(**kwargs)
 
         # remove any field that is not to save, this has to be done
         # before the aliasing resolving to allow to save/load fields
