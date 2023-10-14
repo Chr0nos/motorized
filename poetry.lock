@@ -222,13 +222,13 @@ files = [
 
 [[package]]
 name = "depsolve"
-version = "0.2.0"
+version = "0.2.1"
 description = "Agnostic dependencies solver"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "depsolve-0.2.0-py3-none-any.whl", hash = "sha256:37f2faa4be673bc62ba406a954bbcfc0d96a615c0c513d8dc27a06f9cf1574fb"},
-    {file = "depsolve-0.2.0.tar.gz", hash = "sha256:e91209c934b2fd0f33f1386902b9d2f99ddfe869d6401b68446048b60a096a5c"},
+    {file = "depsolve-0.2.1-py3-none-any.whl", hash = "sha256:ff20075600c3ec26804fc30b7006eef69770623622768c6f5b2036ecc5a53699"},
+    {file = "depsolve-0.2.1.tar.gz", hash = "sha256:98bffc138121fd767780b4bdf8bce30e3888d97a460964b530afc5b4230492ca"},
 ]
 
 [package.dependencies]
