@@ -268,3 +268,4 @@ async def test():
 
     books = await Book.objects.all()
     books = await QuerySet(Book).all()
+    books = await QuerySet[Book](Book).all()

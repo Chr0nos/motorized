@@ -139,3 +139,13 @@ async def test_mark_parent_bis():
     assert toto.inventory["gun"]._parent is toto
     assert toto.friends[0]._parent is toto
     assert isinstance(toto.model_dump(), dict)
+
+
+def test_document_partial_models():
+    from motorized.document import create_partial_model
+    from tests.models import Player
+
+    sub_model = create_partial_model("PlayerReader", Player, ["name", "hp"], optional=True)
+    assert len(sub_model.model_fields.keys()) == 2
+    for field in ("name", "hp"):
+        assert field in sub_model.model_fields, field

@@ -54,7 +54,7 @@ class QuerySet(Generic[T], ABC):
         instance.use_database(self.database)
         return instance
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self.model.__name__}: " f"{self._query}>"
 
     @classmethod

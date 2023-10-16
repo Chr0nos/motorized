@@ -1,8 +1,9 @@
+from copy import copy
 from inspect import isclass
 from typing import Any, Dict, Generator, Self, Type
 
 from bson import ObjectId
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, create_model, field_serializer
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic.fields import FieldInfo
 from pydantic_partial import PartialModelMixin
@@ -224,7 +225,7 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         model_data.pop("_id")
         return self.update(model_data)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         def get_field_entry(field_name: str) -> str:
             return f'{field_name}="{getattr(self, field_name)}"'
 
@@ -260,3 +261,23 @@ def mark_parents(model: DocumentBasis, parent: DocumentBasis | None = None) -> N
         elif isinstance(item, dict):
             for submodel in item.values():
                 mark_parents(submodel, model)
+
+
+def create_partial_model(
+    model_name: str, model: Type[BaseModel], fields: list[str], optional: bool = False
+) -> Type[BaseModel]:
+    """Creates a new model based on `model` fields but only using `fields` for model construction
+    if `optional` is set to True, all fields are optionals.
+    """
+
+    def get_field(field_name: str) -> tuple[type, FieldInfo]:
+        field = copy(model.model_fields[field_name])
+        if optional:
+            field.default = None
+            field.annotation = field.annotation | None
+        return (field.annotation, field)
+
+    return create_model(
+        model_name,
+        **{field_name: get_field(field_name) for field_name in fields},
+    )
