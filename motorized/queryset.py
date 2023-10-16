@@ -1,18 +1,6 @@
 from abc import ABC
 from contextlib import contextmanager
-from typing import (
-    Any,
-    AsyncGenerator,
-    Callable,
-    Dict,
-    Generator,
-    Generic,
-    List,
-    Optional,
-    Self,
-    Type,
-    TypeVar,
-)
+from typing import Any, AsyncGenerator, Callable, Generator, Generic, Optional, Self, Type, TypeVar
 
 from motor.motor_asyncio import (
     AsyncIOMotorClientSession,
@@ -179,13 +167,13 @@ class QuerySet(Generic[T], ABC):
     async def all(self) -> list[T]:
         return list([instance async for instance in self])
 
-    async def map(self, func: Callable) -> List[Any]:
+    async def map(self, func: Callable) -> list[Any]:
         """Apply `func` to all match in the query queryset and return the
         result of the function in a list.
         """
         return list([await func(instance) async for instance in self])
 
-    async def distinct(self, key: str, **kwargs) -> List[Any]:
+    async def distinct(self, key: str, **kwargs) -> list[Any]:
         if not self._query.is_empty():
             kwargs.setdefault("filter", self._query.query)
         return await self.collection.distinct(key, **kwargs)
@@ -199,7 +187,7 @@ class QuerySet(Generic[T], ABC):
         cursor = self.collection.find(self._query.query, **kwargs)
         return await self._paginate_cursor(cursor)
 
-    async def find_one(self, **kwargs) -> Dict:
+    async def find_one(self, **kwargs) -> dict:
         kwargs.setdefault("session", self._session)
         return await self.collection.find_one(filter=self._query.query, sort=self._sort, **kwargs)
 
