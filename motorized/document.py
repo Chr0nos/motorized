@@ -1,25 +1,22 @@
+from copy import copy
 from inspect import isclass
-from typing import Any, Dict, Type, Generator, Literal, Self
-from pydantic import BaseModel, Field, validate_model
-from pydantic.fields import ModelField
-from pydantic.main import ModelMetaclass
+from typing import Any, Dict, Generator, Self, Type
+
+from bson import ObjectId
+from pydantic import BaseModel, ConfigDict, Field, create_model, field_serializer
+from pydantic._internal._model_construction import ModelMetaclass
+from pydantic.fields import FieldInfo
+from pydantic_partial import PartialModelMixin
 from pymongo.results import InsertOneResult, UpdateResult
 
-from motorized.queryset import QuerySet
-from motorized.query import Q
-from motorized.types import PydanticObjectId, ObjectId
 from motorized.exceptions import DocumentNotSavedError, MotorizedError
-from motorized.utils import (
-    deep_update_model,
-    get_all_fields_names,
-    model_map,
-    dynamic_model_node_factory,
-    classproperty,
-)
+from motorized.query import Q
+from motorized.queryset import QuerySet
+from motorized.utils import deep_update_model
 
 
 class DocumentMeta(ModelMetaclass):
-    def __new__(cls, name, bases, optdict: Dict) -> Type["Document"]:
+    def __new__(cls, name, bases, optdict: Dict, **kwargs) -> Type["Document"]:
         # remove any reference to `objects` in the class
         # we only declare it to be readable and conveniant with the IDE
         # the filtering of objects is only effective if you declare a class
@@ -33,7 +30,7 @@ class DocumentMeta(ModelMetaclass):
             pass
 
         # we allocate the BaseModel with pydantic metaclass
-        instance: Type[Document] = super().__new__(cls, name, bases, optdict)
+        instance: Type[Document] = super().__new__(cls, name, bases, optdict, **kwargs)
         if name not in ("Document",):
             cls._populate_default_mongo_options(cls, name, instance, optdict.get("Mongo"))
 
@@ -87,19 +84,21 @@ class DocumentMeta(ModelMetaclass):
                 setattr(instance.Mongo, attribute_name, default_value)
 
 
-class DocumentBasis(BaseModel):
+class DocumentBasis(PartialModelMixin):
     """Represent the very bassis of Document and EmbeddedDocument"""
 
-    class Config:
-        json_encoders = {ObjectId: str}
-        validate_assignment = True
+    model_config = ConfigDict(
+        extra="ignore",
+        validate_assignment=True,
+        arbitrary_types_allowed=True,
+    )
 
     def update(self, input_data: dict) -> Self:
         """Update the current instance with the given `input_data` after
         validation return the object itself (without saving it in the database)
         """
-        validate_model(self, input_data)
-        allow_extra: bool = getattr(self.Config, "extra", "ignore") == "allow"
+        self.model_validate(self.model_dump() | input_data)
+        allow_extra: bool = getattr(self.model_config, "extra", "ignore") == "allow"
 
         # load the fields into the current instance
         for field, value in input_data.items():
@@ -110,41 +109,6 @@ class DocumentBasis(BaseModel):
     def deep_update(self, input_data: dict, **kwargs) -> Self:
         return deep_update_model(self, input_data, **kwargs)
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name.startswith("_"):
-            return object.__setattr__(self, name, value)
-
-        return super().__setattr__(name, value)
-
-
-class PrivatesAttrsMixin:
-    """Ommit any private arributes from iterators and .dict method on this
-    document.
-    """
-
-    class Config:
-        json_encoders = {ObjectId: str}
-        validate_assignment = True
-        underscore_attrs_are_private = True
-
-    def __iter__(self) -> Generator[str, Any, None]:
-        for field_name, field_value in super().__iter__():
-            if field_name not in self.__fields__:
-                continue
-            yield field_name, field_value
-
-    def dict(self, **kwargs) -> dict[str, Any]:
-        def resolve_field(value):
-            if isinstance(value, list):
-                return list([resolve_field(item) for item in value])
-            if isinstance(value, dict):
-                return dict({k: resolve_field(v) for k, v in value.items()})
-            if isinstance(value, BaseModel):
-                return value.dict(**kwargs)
-            return value
-
-        return dict({field_name: resolve_field(field_value) for field_name, field_value in self})
-
 
 class EmbeddedDocument(DocumentBasis):
     pass
@@ -152,7 +116,7 @@ class EmbeddedDocument(DocumentBasis):
 
 class Document(DocumentBasis, metaclass=DocumentMeta):
     objects: QuerySet
-    id: PydanticObjectId | None = Field(alias="_id", read_only=True)
+    id: ObjectId | None = Field(alias="_id", default=None)
 
     # @classmethod
     # def objects(cls) -> QuerySet[Self]:
@@ -163,6 +127,10 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
 
     def __init__(self, *args, **kwargs) -> None:
         BaseModel.__init__(self, *args, **self._transform(**kwargs))
+
+    @field_serializer("id")
+    def serialize_id(self, value: ObjectId, _info) -> str:
+        return str(value)
 
     def get_query(self) -> Q:
         document_id = getattr(self, "id", None)
@@ -185,15 +153,15 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         return (
             not field_name.startswith("_")
             and field_name not in cls.Mongo.local_fields
-            and field_name in cls.__fields__
+            and field_name in cls.model_fields
         )
 
-    async def to_mongo(self) -> Dict:
+    async def to_mongo(self, **kwargs) -> dict[str, Any]:
         """Convert the current model dictionary to database output dict,
         this also mean the aliased fields will be stored in the alias name
         instead of their name in the document declaration.
         """
-        saving_data = self.dict()
+        saving_data = self.model_dump(**kwargs)
 
         # remove any field that is not to save, this has to be done
         # before the aliasing resolving to allow to save/load fields
@@ -201,17 +169,17 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         saving_data = dict({k: v for k, v in saving_data.items() if self._is_field_to_save(k)})
 
         # resolve all alised fields to be saved in their alias name
-        for field in self._aliased_fields():
-            saving_data[field.alias] = saving_data.pop(field.name, None)
+        for field_name, field in self._aliased_fields():
+            saving_data[field.alias] = saving_data.pop(field_name, None)
 
         return saving_data
 
     async def save(self, force_insert: bool = False) -> InsertOneResult | UpdateResult:
         data = await self.to_mongo()
-        document_id = data.pop("_id", None)
-        if document_id is None or force_insert:
+        data.pop("_id", None)
+        if self.id is None or force_insert:
             if force_insert:
-                data["_id"] = document_id
+                data["_id"] = self.id
             return await self._create_in_db(data)
         return await self._update_in_db(data)
 
@@ -237,9 +205,13 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         return await self.objects.filter(self.get_query()).get()
 
     @classmethod
-    def _aliased_fields(cls) -> Generator[list[ModelField], None, None]:
+    def _aliased_fields(cls) -> Generator[tuple[str, FieldInfo], None, None]:
         """Return the list of fields with aliases"""
-        return [field for field in cls.__fields__.values() if field.name != field.alias]
+        return [
+            (name, field)
+            for name, field in cls.model_fields.items()
+            if name != field.alias and field.alias
+        ]
 
     def _transform(self, **kwargs) -> dict:
         """Override this method to change the input database before having it
@@ -253,117 +225,18 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         model_data.pop("_id")
         return self.update(model_data)
 
-    def __repr__(self):
-        def get_field_entry(field: Field) -> str:
-            return f"{field.name}={getattr(self, field.name)}"
+    def __repr__(self) -> str:
+        def get_field_entry(field_name: str) -> str:
+            return f'{field_name}="{getattr(self, field_name)}"'
 
         fields = ", ".join(
             [
-                get_field_entry(field)
-                for field in self.__fields__.values()
-                if field.name not in self.Mongo.local_fields
+                get_field_entry(field_name)
+                for field_name in self.model_fields.keys()
+                if field_name not in self.Mongo.local_fields
             ]
         )
         return f"{self.__class__.__name__}({fields})"
-
-    # def __setattr__(self, name: str, value: Any) -> None:
-    #     # allow any private attribute to be passed
-    #     if name.startswith('_') or name in self.Mongo.local_fields:
-    #         return object.__setattr__(self, name, value)
-
-    #     # otherwise we let pydantic decide
-    #     return super().__setattr__(name, value)
-
-    @classmethod
-    def get_readonly_fields(cls):
-        return list(cls.get_marked_fields("read_only").keys())
-
-    @classmethod
-    def get_marked_fields(cls, mark: str, value=True, default=False) -> dict[str, ModelField]:
-        return dict(
-            {
-                field_name: field
-                for field_name, field in cls.__fields__.items()
-                if field.field_info.extra.get(mark, default) == value
-            }
-        )
-
-    @classmethod
-    def get_updater_model(
-        cls,
-        exclude: list[tuple[BaseModel, list[str] | None]] | None = None,
-    ) -> Type[BaseModel]:
-        return cls.get_filtered_model(exclude, ["read_only", "private"])
-
-    @classmethod
-    def get_reader_model(
-        cls,
-        exclude: list[tuple[BaseModel, list[str] | None]] | None = None,
-        exclude_fields_marks: list[str] | None = None,
-    ) -> Type[BaseModel]:
-        if exclude_fields_marks is None:
-            exclude_fields_marks = []
-        reader = cls.get_filtered_model(exclude, ["private"] + exclude_fields_marks)
-        model = type(cls.__name__ + "Reader", (reader,), {})
-        return model
-
-    @classmethod
-    def get_filtered_model(
-        cls,
-        exclude: list[tuple[BaseModel, list[str] | None]] | None = None,
-        exclude_fields_marks: list[str] | None = None,
-    ) -> Type[BaseModel]:
-        """This class factory function create a new BaseModel from this model
-        with all the fields that are not marked as `read_only`, all the fields
-        are optional in the generated model
-
-        exemple:
-        ```python
-        updater = User.get_updater_model(exclude=[(User, ['password'])])
-        ```
-        """
-
-        def is_excluded(model: BaseModel, field: ModelField) -> bool:
-            if not exclude:
-                return False
-            for exclude_model, exclude_field_names in exclude.items():
-                if model == exclude_model:
-                    if exclude_field_names is None:
-                        return True
-                    if field.field_info.name in exclude_field_names:
-                        return True
-            return False
-
-        def field_filtering(model: BaseModel, field: ModelField) -> ModelField | None:
-            if is_excluded(model, field):
-                return None
-            if exclude_fields_marks:
-                for mark in exclude_fields_marks:
-                    if field.field_info.extra.get(mark):
-                        return None
-            if field.name in cls.Mongo.local_fields:
-                return None
-            return field
-
-        return model_map(cls, field_filtering, dynamic_model_node_factory, True)
-
-    @classmethod
-    def get_public_ordering_fields(cls) -> Literal:
-        """Return a literal with all visibles fields from an external use
-        perspective (ignore all Fields(private=True))
-        """
-
-        def is_ignored(field_name: str, field: ModelField) -> bool:
-            if field.field_info.extra.get("private", False):
-                return True
-            if field_name in cls.Mongo.local_fields:
-                return True
-            return False
-
-        fields = get_all_fields_names(cls, field_skip_func=is_ignored)
-        fields.extend([f"-{field_name}" for field_name in fields])
-        fields.sort(key=lambda x: x if not x.startswith("-") else x[1:])
-        return Literal[tuple(fields)]
 
 
 def mark_parents(model: DocumentBasis, parent: DocumentBasis | None = None) -> None:
@@ -375,24 +248,36 @@ def mark_parents(model: DocumentBasis, parent: DocumentBasis | None = None) -> N
     .dict method.
     """
     model._parent = parent
-    for field in model.__fields__.values():
-        field: ModelField = field
-        try:
-            if not issubclass(field.type_, DocumentBasis):
-                continue
-        # in this error all the Literal will fall, we don't want to mark them
-        # so we just continue.
-        except TypeError:
-            continue
+    for field_name, field in model.model_fields.items():
+        item = getattr(model, field_name)
 
-        item = getattr(model, field.name)
-        if isinstance(item, DocumentBasis):
+        if isinstance(item, BaseModel):
             mark_parents(item, model)
 
-        elif isinstance(item, list):
+        elif type(item) in (list, tuple):
             for submodel in item:
                 mark_parents(submodel, model)
 
         elif isinstance(item, dict):
             for submodel in item.values():
                 mark_parents(submodel, model)
+
+
+def create_partial_model(
+    model_name: str, model: Type[BaseModel], fields: list[str], optional: bool = False
+) -> Type[BaseModel]:
+    """Creates a new model based on `model` fields but only using `fields` for model construction
+    if `optional` is set to True, all fields are optionals.
+    """
+
+    def get_field(field_name: str) -> tuple[type, FieldInfo]:
+        field = copy(model.model_fields[field_name])
+        if optional:
+            field.default = None
+            field.annotation = field.annotation | None
+        return (field.annotation, field)
+
+    return create_model(
+        model_name,
+        **{field_name: get_field(field_name) for field_name in fields},
+    )

@@ -1,15 +1,15 @@
 [tool.poetry]
 name = "animals"
-version = "0.1.0"
+version = "0.1.1"
 description = "Sample of REST api with motorized"
 authors = ["Sebastien Nicolet <snicolet95@gmail.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.11"
 uvicorn = "^0.15.0"
-motorized = "^0.4.0"
 fastapi = "^0.70.0"
+motorized = "^0.7.0"
 
 [tool.poetry.dev-dependencies]
 

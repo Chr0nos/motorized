@@ -1,13 +1,12 @@
+from typing import Any, Optional, get_args
+
 import pytest
-
-from tests.models import Player, Named
-
-from pydantic import BaseModel
-from typing import Optional, Any, get_args
 from bson.objectid import ObjectId
+from pydantic import BaseModel
 
-from motorized import connection, Document, QuerySet
+from motorized import Document, QuerySet, connection
 from motorized.exceptions import DocumentNotSavedError, NotConnectedException
+from tests.models import Named, Player
 
 
 def test_document_type():
@@ -22,7 +21,7 @@ def test_collection_resolver_basic():
     class User(Document):
         pass
 
-    assert User.Mongo.collection == 'users'
+    assert User.Mongo.collection == "users"
 
 
 def test_collection_resolver_nested():
@@ -32,24 +31,24 @@ def test_collection_resolver_nested():
     class Student(User):
         pass
 
-    assert Student.Mongo.collection == 'students'
+    assert Student.Mongo.collection == "students"
 
 
 def test_collection_forcing():
     class User(Document):
         class Mongo:
-            collection = 'forced'
+            collection = "forced"
 
     class Student(User):
         pass
 
     class Alumni(Student):
         class Mongo:
-            collection = 'ancients'
+            collection = "ancients"
 
-    assert User.Mongo.collection == 'forced'
-    assert Student.Mongo.collection == 'students'
-    assert Alumni.Mongo.collection == 'ancients'
+    assert User.Mongo.collection == "forced"
+    assert Student.Mongo.collection == "students"
+    assert Alumni.Mongo.collection == "ancients"
 
 
 def test_document_has_objects():
@@ -68,8 +67,9 @@ def test_document_custom_manager_class():
         pass
 
     assert isinstance(Book.objects, BookManager)
-    assert isinstance(Encyclopedia.objects, QuerySet) and \
-        not isinstance(Encyclopedia.objects, BookManager)
+    assert isinstance(Encyclopedia.objects, QuerySet) and not isinstance(
+        Encyclopedia.objects, BookManager
+    )
 
 
 @pytest.mark.asyncio
@@ -79,12 +79,12 @@ async def test_local_fields():
         extra: int
 
         class Mongo:
-            local_fields = ('extra',)
+            local_fields = ("extra",)
 
-    book = Book(name='lotr', extra=2)
+    book = Book(name="lotr", extra=2)
     book_data = await book.to_mongo()
-    assert book_data['name'] == book.name
-    assert 'extra' not in book_data
+    assert book_data["name"] == book.name
+    assert "extra" not in book_data
 
 
 def test_attributes_inheritance():
@@ -104,9 +104,9 @@ def test_attributes_inheritance():
     class Alumni(Foo, Student):
         finished_year: int
 
-    assert 'name' in Alumni.__fields__
-    assert 'age' in Alumni.__fields__
-    assert 'finished_year' in Alumni.__fields__
+    assert "name" in Alumni.model_fields
+    assert "age" in Alumni.model_fields
+    assert "finished_year" in Alumni.model_fields
 
 
 def test_inheritance_stacking():
@@ -122,8 +122,8 @@ def test_inheritance_stacking():
     class Delta(Charlie, Bravo):
         delta: bool = True
 
-    for field in ('alpha', 'bravo', 'charlie', 'delta'):
-        assert field in Delta.__fields__, field
+    for field in ("alpha", "bravo", "charlie", "delta"):
+        assert field in Delta.model_fields, field
 
 
 @pytest.mark.asyncio
@@ -132,17 +132,17 @@ async def test_private_attributes():
         url: str
         _page_content: Optional[Any] = None
 
-    x = Scrapper(url='google.com')
+    x = Scrapper(url="google.com")
     saving_data = await x.to_mongo()
-    assert '_page_content' not in saving_data
-    assert 'url' in saving_data
-    assert not Scrapper._is_field_to_save('_page_content')
+    assert "_page_content" not in saving_data
+    assert "url" in saving_data
+    assert not Scrapper._is_field_to_save("_page_content")
 
     x._other = True
 
     # we don't want to allow inserting private values from the constructor
     # to avoid malicious code to come from the database into the python object.
-    y = Scrapper(url='test', _page_content='test')
+    y = Scrapper(url="test", _page_content="test")
     assert y._page_content is None
 
 
@@ -155,8 +155,7 @@ def test_queryset_inheritance():
             manager_class = UserManager
 
     assert isinstance(User.objects, UserManager)
-    assert isinstance(User.objects.copy(), UserManager), \
-        type(User.objects.copy())
+    assert isinstance(User.objects.copy(), UserManager), type(User.objects.copy())
 
 
 def test_get_query():
@@ -166,7 +165,7 @@ def test_get_query():
     book = Book()
     book.id = ObjectId()
 
-    assert book.get_query().query == {'_id': book.id}
+    assert book.get_query().query == {"_id": book.id}
 
 
 def test_get_query_not_saved():
@@ -190,67 +189,8 @@ async def test_not_connected():
 
 
 @pytest.mark.asyncio
-async def test_document_updater():
-    billy = Player(
-        name='Billy',
-        position={"x": 0.0, "y": 1.0, "z": 1.0}
-    )
-    assert Player.get_readonly_fields() == ['id', 'name', 'golds', 'hp']
-    model = Player.get_updater_model()
-    payload = {
-        "id": "ignore me",
-        "name": "Simon",
-        "position": {"x": 2.0, "w": 4.0},
-        "ignore_me": True,
-        "hp": {"left": 42},
-        "golds": 2
-    }
-    data = model(**payload).dict(exclude_unset=True)
-    billy.deep_update(data)
-    assert billy.position == {"x": 2.0, "y": 1.0, "z": 1.0}
-    assert billy.name == 'Billy'
-    assert billy.id is None
-    assert not hasattr(billy, "ignore_me")
-    assert billy.golds == 0
-    assert billy.hp.left == 10, "this field is read only"
-
-    # this update should reset the positions since a None has been
-    # passed as position.
-    billy.deep_update({'position': None})
-    assert billy.position == {'x': 0.0, 'y': 0.0, 'z': 0.0}
-
-    billy.position = {'x': 10.0, 'y': 10.0, 'z': 10.0}
-    # this update should leave the actual positions as they are since no values
-    # were changed
-    billy.deep_update({'position': {}})
-    assert billy.position == {'x': 10.0, 'y': 10.0, 'z': 10.0}
-
-    # this update should reset the positions
-    billy.update({'position': {}})
-    assert billy.position == {"x": 0.0, "y": 0.0, "z": 0.0}
-
-    assert isinstance(billy.__repr__(), str)
-
-
-@pytest.mark.asyncio
 async def test_document_delete_without_id():
     bob = Named(name="bob")
     await bob.delete()
     assert bob.name == "bob"
     assert bob.id is None
-
-
-def test_document_ordering_fields():
-    fields_literal = Player.get_public_ordering_fields()
-    ordering_values = list(get_args(fields_literal))
-    expected_orderings = [
-        'golds', '-golds',
-        'hp__left', '-hp__left',
-        'hp__max', '-hp__max',
-        'id', '-id',
-        'name', '-name',
-        'position__x', '-position__x',
-        'position__y', '-position__y',
-        'position__z', '-position__z'
-    ]
-    assert ordering_values == expected_orderings

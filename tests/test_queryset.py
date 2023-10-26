@@ -1,9 +1,10 @@
-from motorized.exceptions import DocumentNotSavedError
 import pytest
-from motorized import Document, Q
 from pymongo.results import UpdateResult
-from tests.utils import require_db
+
+from motorized import Document, Q
+from motorized.exceptions import DocumentNotSavedError
 from tests.models import Book, Named
+from tests.utils import require_db
 
 
 @pytest.mark.asyncio
@@ -267,3 +268,4 @@ async def test():
 
     books = await Book.objects.all()
     books = await QuerySet(Book).all()
+    books = await QuerySet[Book](Book).all()

@@ -3,7 +3,6 @@ from .document import (
     Document,
     BaseModel,
     EmbeddedDocument,
-    PrivatesAttrsMixin,
     Field,
     mark_parents,
 )  # noqa: F401

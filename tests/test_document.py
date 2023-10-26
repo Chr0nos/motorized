@@ -1,16 +1,13 @@
+from typing import Dict, List, Literal, Optional
+
 import pytest
 from bson import ObjectId
 from pymongo.results import InsertOneResult, UpdateResult
-from pydantic import BaseModel
 
+from motorized import Document, EmbeddedDocument, mark_parents
+from motorized.exceptions import DocumentNotSavedError
 from tests.models import Named
 from tests.utils import require_db
-from typing import List, Optional, Dict, Literal
-
-from motorized.exceptions import DocumentNotSavedError
-from motorized import (
-    Document, Field, EmbeddedDocument, mark_parents, PrivatesAttrsMixin
-)
 
 
 @pytest.mark.asyncio
@@ -26,12 +23,12 @@ async def test_fetch_when_not_saved():
 async def test_fetch_saved():
     bob = Named(name="Bob")
     await bob.save()
-    await Named.objects.filter(_id=bob.id).update(name='Louis')
+    await Named.objects.filter(_id=bob.id).update(name="Louis")
     louis = await bob.fetch()
 
     assert louis.id == bob.id
-    assert louis.name == 'Louis'
-    assert bob.name == 'Bob'
+    assert louis.name == "Louis"
+    assert bob.name == "Bob"
 
 
 @pytest.mark.asyncio
@@ -46,40 +43,6 @@ async def test_save_with_custom_id():
     assert isinstance(await bob.save(), UpdateResult)
 
 
-@pytest.mark.asyncio
-@require_db
-async def test_document_reader_model():
-    bob = Named(name="bob")
-    await bob.save()
-    reader_model = bob.get_reader_model()
-    reader = reader_model(**bob.dict(by_alias=True))
-    assert isinstance(reader, BaseModel)
-    output = reader.dict()
-    assert output['id'] == bob.id
-
-    print(bob.__fields__)
-    print(reader.__fields__)
-
-    assert reader_model.__fields__['id'].alias == '_id'
-
-
-def test_document_reader_aliasing():
-
-    class Test(Document):
-        x: int = Field(alias='y')
-
-    assert Test.__fields__['x'].alias == 'y'
-
-
-def test_document_reader_with_contraints():
-    class Animal(Document):
-        legs: int = Field(ge=0, lt=5)
-
-    # print(Animal.__fields__)
-    # print(dir(Animal))
-    Animal.get_reader_model()
-
-
 def test_document_update_with_nested():
     class Chapter(EmbeddedDocument):
         name: str
@@ -89,41 +52,27 @@ def test_document_update_with_nested():
         name: str
         chapters: List[Chapter] = []
 
-    x = Book(name='test')
+    x = Book(name="test")
     assert isinstance(x.chapters, list)
-    x.chapters.append(Chapter(name='first', pages_count=0))
+    x.chapters.append(Chapter(name="first", pages_count=0))
 
-    x.update({'chapters': [{'name': 'again', 'pages_count': 42}]})
+    x.update({"chapters": [{"name": "again", "pages_count": 42}]})
     assert x.chapters[0].pages_count == 42
 
-    x.chapters[0].update({'name': 'yay'})
-    assert x.chapters[0].name == 'yay'
+    x.chapters[0].update({"name": "yay"})
+    assert x.chapters[0].name == "yay"
     assert x.chapters[0].pages_count == 42
     assert callable(x.chapters[0].update)
     assert callable(x.chapters[0].deep_update)
 
-    x.chapters[0].update({'name': 'changed'})
-    assert x.chapters[0].name == 'changed'
-
-
-def test_document_private_override():
-    class Test(Document):
-        name: str
-        _something: int
-
-    x = Test(name='test')
-    x._something = 42
-    assert x._something == 42
-    assert '_something' not in Test.get_reader_model().__fields__
-    assert 'name' in Test.get_reader_model().__fields__
+    x.chapters[0].update({"name": "changed"})
+    assert x.chapters[0].name == "changed"
 
 
 @pytest.mark.asyncio
 @require_db
 async def test_embedded_document_privates_attributes():
-    from motorized.document import PrivatesAttrsMixin
-
-    class Chapter(PrivatesAttrsMixin, EmbeddedDocument):
+    class Chapter(EmbeddedDocument):
         name: str
         _parent: Optional["Book"] = None  # noqa: F821
 
@@ -131,20 +80,20 @@ async def test_embedded_document_privates_attributes():
         title: str
         chapters: List[Chapter]
 
-    Chapter.update_forward_refs()
+    Chapter.model_rebuild()
 
-    x = Book(title='irrelevant', chapters=[Chapter(name='test')])
+    x = Book(title="irrelevant", chapters=[Chapter(name="test")])
     x.chapters[0]._parent = x
     assert x.chapters[0]._parent is x
 
-    chapter_dict = x.chapters[0].dict()
+    chapter_dict = x.chapters[0].model_dump()
     assert isinstance(chapter_dict, dict)
-    assert '_parent' not in chapter_dict
-    assert 'name' in chapter_dict
+    assert "_parent" not in chapter_dict
+    assert "name" in chapter_dict
 
-    assert x.dict()['chapters'][0] == chapter_dict
+    assert x.model_dump()["chapters"][0] == chapter_dict
 
-    c = Chapter(name='test', _parent=40)
+    c = Chapter(name="test", _parent=40)
     assert c._parent is None
     c._parent = 42
     assert c._parent == 42
@@ -155,16 +104,16 @@ async def test_embedded_document_privates_attributes():
 async def test_mark_parents():
     class Person(Document):
         name: str
-        friends: Optional[List["Person"]]  # noqa: F821
+        friends: list["Person"] | None = None
 
-    Person.update_forward_refs()
+    Person.model_rebuild()
 
     tree = Person(
-        name='Bob',
+        name="Bob",
         friends=[
-            Person(name='A'),
-            Person(name='B')
-        ]
+            Person(name="A"),
+            Person(name="B"),
+        ],
     )
     mark_parents(tree)
 
@@ -175,22 +124,28 @@ async def test_mark_parents():
 
 @pytest.mark.asyncio
 async def test_mark_parent_bis():
-    class Item(PrivatesAttrsMixin, EmbeddedDocument):
+    class Item(EmbeddedDocument):
         name: str
 
-    class Player(PrivatesAttrsMixin, Document):
+    class Player(Document):
         inventory: Dict[str, Item] = {}
         friends: List["Player"] = []
-        temper: Optional[Literal["calm", "nervous"]] = None
+        temper: Literal["calm", "nervous"] | None = None
 
-    Player.update_forward_refs()
-    toto = Player(
-        inventory={'gun': Item(name='gun')},
-        friends=[Player()],
-        temper="calm"
-    )
+    Player.model_rebuild()
+    toto = Player(inventory={"gun": Item(name="gun")}, friends=[Player()], temper="calm")
     mark_parents(toto)
     assert toto._parent is None
-    assert toto.inventory['gun']._parent is toto
+    assert toto.inventory["gun"]._parent is toto
     assert toto.friends[0]._parent is toto
-    assert isinstance(toto.dict(), dict)
+    assert isinstance(toto.model_dump(), dict)
+
+
+def test_document_partial_models():
+    from motorized.document import create_partial_model
+    from tests.models import Player
+
+    sub_model = create_partial_model("PlayerReader", Player, ["name", "hp"], optional=True)
+    assert len(sub_model.model_fields.keys()) == 2
+    for field in ("name", "hp"):
+        assert field in sub_model.model_fields, field

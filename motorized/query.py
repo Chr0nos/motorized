@@ -1,7 +1,7 @@
-from typing import List, Any, Dict, Tuple
-from motorized.keywords import Eq, Neq, In, Nin, Gte, Lte, Gt, Lt, Exists, Regex
-from motorized.utils import merge_values, dict_deep_update
+from typing import Any, Dict, List, Tuple
 
+from motorized.keywords import Eq, Exists, Gt, Gte, In, Lt, Lte, Neq, Nin, Regex
+from motorized.utils import dict_deep_update, merge_values
 
 KEYWORDS = {
     "eq": Eq,
