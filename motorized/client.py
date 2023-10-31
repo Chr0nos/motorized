@@ -7,9 +7,12 @@ class Connection:
     client: AsyncIOMotorClient = None
     database: AsyncIOMotorDatabase = None
 
-    async def connect(self, *args, **kwargs):
+    async def connect(self, database_name: str | None = None, *args, **kwargs):
         self.client = AsyncIOMotorClient(*args, **kwargs)
-        self.database = self.client.get_default_database()
+        if database_name:
+            self.database = self.client.get_database(database_name)
+        else:
+            self.database = self.client.get_default_database()
 
     async def disconnect(self) -> None:
         self.client = None

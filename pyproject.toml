@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "motorized"
-version = "0.7.0"
+version = "0.7.1"
 description = "Asyncio mongodb ODM based on pydantic"
 authors = ["Sebastien Nicolet <snicolet95@gmail.com>"]
 license = "MIT"

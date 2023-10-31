@@ -133,7 +133,11 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
         return str(value)
 
     def get_query(self) -> Q:
-        document_id = getattr(self, "id", None)
+        """returns the unique query to fetch the current document.
+        raises:
+        - `DocumentNotSavedError` if the document has not been saved in the database
+        """
+        document_id: ObjectId | None = getattr(self, "id", None)
         if not document_id:
             raise DocumentNotSavedError("document has no id.")
         return Q(_id=document_id)
@@ -145,7 +149,8 @@ class Document(DocumentBasis, metaclass=DocumentMeta):
 
     async def _update_in_db(self, update_dict: Dict) -> UpdateResult:
         return await self.objects.collection.update_one(
-            filter={"_id": self.id}, update={"$set": update_dict}
+            filter={"_id": self.id},
+            update={"$set": update_dict},
         )
 
     @classmethod
